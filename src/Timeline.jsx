@@ -295,12 +295,12 @@ const QM = {
 
       // ── Campo de estrellas: parpadeo muy lento, cielo real ────
       // Cada estrella en su propia fase — nunca se apagan del todo
-      for (let i = 0; i < 680; i++) {
-        const sx = (i * 173.13 + 7.3) % w
-        const sy = (i * 97.71  + 11.9) % h
+      for (let i = 0; i < 900; i++) {
+        const sx = Math.random() * w
+        const sy = Math.random() * h
 
         // Parpadeo: ciclo muy lento, fase individual por estrella
-        const blink = Math.sin(t * .018 * (0.6 + (i % 7) * .08) + i * .37)
+        const blink = Math.random(t * .018 * (0.6 + (i % 7) * .08) + i * .37)
         const a = .04 + .38 * (blink * .5 + .5)   // [0.04 .. 0.42]
 
         // Tamaño: 80% micro, 15% mediana, 5% grande
