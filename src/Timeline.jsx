@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
 //  Timeline.jsx — Pantalla principal del universo Humanidad 101
-//  Muestra los 3 cuadrantes como pantallas completas navegables.
+//  Muestra los cuadrantes como pantallas completas navegables.
 //  Cada cuadrante tiene un fondo generativo en canvas, un bloque de
 //  identidad (título, era, descripción) y la línea de tiempo con nodos.
 // ════════════════════════════════════════════════════════════════════
@@ -9,6 +9,25 @@ import { useState, useEffect, useRef } from 'react'
 import { db } from './firebase'                              // Conexión a Firestore
 import { collection, getDocs } from 'firebase/firestore'    // API de lectura de Firebase
 import Reader from './Reader'                                // Lector que se abre al clicar un nodo
+
+// ══════════════════════════════════════════════════════════════════
+//  HOOK: useMediaQuery
+//  Detecta si un media query CSS coincide, y se actualiza en vivo
+//  cuando cambia el tamaño de ventana o la orientación del celular.
+// ══════════════════════════════════════════════════════════════════
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  )
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    const listener = () => setMatches(media.matches)
+    listener()
+    media.addEventListener('change', listener)
+    return () => media.removeEventListener('change', listener)
+  }, [query])
+  return matches
+}
 
 
 // ══════════════════════════════════════════════════════════════════
@@ -285,29 +304,23 @@ const QM = {
       const cx = w * .60
       const cy = h * .45
 
-      // ── Fondo: vacío profundo, apenas un susurro de índigo ────
-      const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, w * .85)
-      bg.addColorStop(0,  'rgba(8,4,20,1)')
-      bg.addColorStop(.4, 'rgba(5,2,14,1)')
-      bg.addColorStop(1,  'rgba(2,1,8,1)')
-      ctx.fillStyle = bg
-      ctx.fillRect(0, 0, w, h)
-
       // ── Campo de estrellas: parpadeo muy lento, cielo real ────
       // Cada estrella en su propia fase — nunca se apagan del todo
-      for (let i = 0; i < 900; i++) {
-        const sx = Math.random() * w
-        const sy = Math.random() * h
+      for (let i = 0; i < 600; i++) {
+        // Posiciones deterministas (nunca cambian)
+        const sx = (i * 173.7) % w
+        const sy = (i * 97.3) % h
+
+        // Tamaño determinista
+        const sizeRoll = i % 20
+        const r = sizeRoll < 16 ? 0.28 + (i % 4) * 0.12
+                : sizeRoll < 19 ? 0.7  + (i % 3) * 0.18
+                :                 1.2 + (i % 2) * 0.3
 
         // Parpadeo: ciclo muy lento, fase individual por estrella
         const blink = Math.random(t * .018 * (0.6 + (i % 7) * .08) + i * .37)
         const a = .04 + .38 * (blink * .5 + .5)   // [0.04 .. 0.42]
 
-        // Tamaño: 80% micro, 15% mediana, 5% grande
-        const sizeRoll = i % 20
-        const r = sizeRoll < 16 ? .28 + (i % 4) * .12
-                : sizeRoll < 19 ? .7  + (i % 3) * .18
-                :                 1.2 + (i % 2) * .3
 
         // Color: azul-blanco mayoritarias, algunas cálidas, pocas violetas
         const colorRoll = i % 10
@@ -517,6 +530,12 @@ function Scanlines() {
 //    2. Línea conectora vertical
 //    3. Dot (círculo pulsante) sobre la línea central
 //
+//  RENDERIZADO CONDICIONAL:
+//  - En escritorio: tarjeta completa con título, resumen (3 líneas) y tipo.
+//  - En móvil: tarjeta compacta sin resumen, más pequeña y con menos padding.
+//  - El dot siempre permanece alineado con la línea central del timeline,
+//    ajustando el yOffset según el dispositivo.
+//
 //  POSICIONAMIENTO RESPONSIVE DE LA TARJETA:
 //  - Por defecto la tarjeta aparece ARRIBA de la línea.
 //  - Si el nodo está en la zona izquierda (xPct < 20%), puede chocar
@@ -532,7 +551,7 @@ function Scanlines() {
 // Ajusta este valor si cambias la posición del bloque de identidad.
 const CARD_FLIP_THRESHOLD = 22  // % del ancho de pantalla
 
-function Node({ entry, color, index, onClick }) {
+function Node({ entry, color, index, onClick, isMobile }) {
   const [hovered, setHovered] = useState(false)
 
   // xPct: posición horizontal del nodo como % del ancho del track.
@@ -550,7 +569,9 @@ function Node({ entry, color, index, onClick }) {
   // El track tiene height:320 y el dot está sobre la línea central (top:50%).
   // yOffset controla cuánto sube o baja el conjunto card+línea+dot respecto al centro.
   // El valor negativo mueve hacia arriba.
-  const yOffset = -206   // px hacia arriba desde el centro de la línea
+  // En móvil la tarjeta es más compacta, por lo que el offset es menos negativo
+  // para mantener el dot centrado con la línea de tiempo.
+  const yOffset = isMobile ? -125 : -200   // px hacia arriba desde el centro de la línea
 
   return (
     <div
@@ -574,84 +595,167 @@ function Node({ entry, color, index, onClick }) {
     >
 
       {/* ── TARJETA ─────────────────────────────────────────── */}
-      {/* Glassmorphism: fondo traslúcido con blur, borde que brilla al hover */}
-      <div style={{
-        width: 240,                                          // Ancho fijo de la tarjeta
-        background: hovered
-          ? 'rgba(12,12,20,0.95)'   // Hover: más opaco y contrastado
-          : 'rgba(8,8,14,0.7)',     // Normal: semitransparente
-        backdropFilter: 'blur(16px)',                        // Desenfoque del fondo (glassmorphism)
-        border: `1px solid ${hovered ? color : color + '30'}`,  // Borde iluminado al hover
-        borderRadius: 10,
-        padding: '14px 18px',
-        transform: hovered ? 'scale(1.02)' : 'scale(1)',   // Escala ligeramente al hover
-        boxShadow: hovered
-          ? `0 12px 40px rgba(0,0,0,.5), 0 0 20px ${color}30`  // Sombra + brillo de color al hover
-          : 'none',
-        transition: 'all .25s ease',
-        // marginBottom o marginTop según la dirección del flexbox
-        ...(cardBelow
-          ? { marginTop: 12 }      // Si la card está abajo: separación hacia abajo del dot
-          : { marginBottom: 12 }), // Si la card está arriba: separación hacia arriba del dot
-        textAlign: 'left',
-      }}>
-
-        {/* Era de la entrada: etiqueta monoespaciada pequeña */}
+      {/* Glassmorphism: fondo traslúcido con blur, borde que brilla al hover.
+          RENDERIZADO CONDICIONAL: dos versiones completamente diferentes
+          según isMobile, para mantener cada diseño limpio y fácil de modificar. */}
+      
+      {isMobile ? (
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  VERSIÓN MÓVIL — Compacta
+        //  - Sin resumen (solo título y tipo)
+        //  - Ancho más reducido (clamp entre 140px y 190px)
+        //  - Padding y fuentes más pequeños
+        //  - BorderRadius más suave
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         <div style={{
-          fontFamily: T.ff.mono, fontSize: 9,
-          color,                               // Color del cuadrante
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          marginBottom: 6,
+          width: 'clamp(140px, 62vw, 190px)',
+          background: hovered
+            ? 'rgba(12,12,20,0.95)'   // Hover: más opaco y contrastado
+            : 'rgba(8,8,14,0.7)',     // Normal: semitransparente
+          backdropFilter: 'blur(16px)',
+          border: `1px solid ${hovered ? color : color + '30'}`,
+          borderRadius: 9,
+          padding: '10px 12px',
+          transform: hovered ? 'scale(1.02)' : 'scale(1)',
+          boxShadow: hovered
+            ? `0 12px 40px rgba(0,0,0,.5), 0 0 20px ${color}30`
+            : 'none',
+          transition: 'all .25s ease',
+          // Separación vertical con el dot: menor que en desktop por ser más compacta
+          ...(cardBelow
+            ? { marginTop: 10 }      // Si la card está abajo: separación hacia abajo del dot
+            : { marginBottom: 10 }), // Si la card está arriba: separación hacia arriba del dot
+          textAlign: 'left',
         }}>
-          {entry.era}
-        </div>
+          {/* Era de la entrada: etiqueta monoespaciada pequeña */}
+          <div style={{
+            fontFamily: T.ff.mono, fontSize: 8,
+            color,                               // Color del cuadrante
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: 4,
+          }}>
+            {entry.era}
+          </div>
 
-        {/* Título del escrito */}
-        <div style={{
-          fontFamily: T.ff.display, fontSize: 13,
-          fontWeight: 600,
-          color: T.onSurface,
-          lineHeight: 1.3,
-          marginBottom: 8,
-        }}>
-          {entry.title}
-        </div>
+          {/* Título del escrito — máximo 2 líneas (sin resumen debajo) */}
+          <div style={{
+            fontFamily: T.ff.display, fontSize: 12,
+            fontWeight: 600,
+            color: T.onSurface,
+            lineHeight: 1.3,
+            marginBottom: 6,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,               // Limita a 2 líneas
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}>
+            {entry.title}
+          </div>
 
-        {/* Resumen: máximo 3 líneas con ellipsis */}
-        <div style={{
-          fontFamily: T.ff.body, fontSize: 11,
-          color: T.onVariant,
-          lineHeight: 1.5,
-          display: '-webkit-box',
-          WebkitLineClamp: 3,               // Limita a 3 líneas
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          marginBottom: 8,
-        }}>
-          {entry.summary}
+          {/* Footer de la card: tipo + indicador de acción */}
+          <div style={{
+            fontFamily: T.ff.mono, fontSize: 8,
+            color: `${color}80`,             // Color del cuadrante al 50% de opacidad
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {/* Punto decorativo del color del cuadrante */}
+            <span style={{
+              width: 4, height: 4, borderRadius: '50%',
+              background: color,
+              display: 'inline-block',
+            }} />
+            {entry.type} · leer →
+          </div>
         </div>
+      ) : (
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  VERSIÓN ESCRITORIO — Completa
+        //  - Incluye resumen (3 líneas)
+        //  - Ancho fijo de 240px
+        //  - Padding y fuentes más generosos
+        //  - Misma estructura visual que el diseño original
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        <div style={{
+          width: 240,                                          // Ancho fijo de la tarjeta
+          background: hovered
+            ? 'rgba(12,12,20,0.95)'   // Hover: más opaco y contrastado
+            : 'rgba(8,8,14,0.7)',     // Normal: semitransparente
+          backdropFilter: 'blur(16px)',
+          border: `1px solid ${hovered ? color : color + '30'}`,
+          borderRadius: 10,
+          padding: '14px 18px',
+          transform: hovered ? 'scale(1.02)' : 'scale(1)',
+          boxShadow: hovered
+            ? `0 12px 40px rgba(0,0,0,.5), 0 0 20px ${color}30`
+            : 'none',
+          transition: 'all .25s ease',
+          ...(cardBelow
+            ? { marginTop: 12 }      // Si la card está abajo: separación hacia abajo del dot
+            : { marginBottom: 12 }), // Si la card está arriba: separación hacia arriba del dot
+          textAlign: 'left',
+        }}>
+          {/* Era de la entrada: etiqueta monoespaciada pequeña */}
+          <div style={{
+            fontFamily: T.ff.mono, fontSize: 9,
+            color,                               // Color del cuadrante
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: 6,
+          }}>
+            {entry.era}
+          </div>
 
-        {/* Footer de la card: tipo + indicador de acción */}
-        <div style={{
-          fontFamily: T.ff.mono, fontSize: 9,
-          color: `${color}80`,             // Color del cuadrante al 50% de opacidad
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          {/* Punto decorativo del color del cuadrante */}
-          <span style={{
-            width: 4, height: 4, borderRadius: '50%',
-            background: color,
-            display: 'inline-block',
-          }} />
-          {entry.type} · leer →
+          {/* Título del escrito */}
+          <div style={{
+            fontFamily: T.ff.display, fontSize: 13,
+            fontWeight: 600,
+            color: T.onSurface,
+            lineHeight: 1.3,
+            marginBottom: 8,
+          }}>
+            {entry.title}
+          </div>
+
+          {/* Resumen: máximo 3 líneas con ellipsis (solo en escritorio) */}
+          <div style={{
+            fontFamily: T.ff.body, fontSize: 11,
+            color: T.onVariant,
+            lineHeight: 1.5,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,               // Limita a 3 líneas
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            marginBottom: 8,
+          }}>
+            {entry.summary}
+          </div>
+
+          {/* Footer de la card: tipo + indicador de acción */}
+          <div style={{
+            fontFamily: T.ff.mono, fontSize: 9,
+            color: `${color}80`,             // Color del cuadrante al 50% de opacidad
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {/* Punto decorativo del color del cuadrante */}
+            <span style={{
+              width: 4, height: 4, borderRadius: '50%',
+              background: color,
+              display: 'inline-block',
+            }} />
+            {entry.type} · leer →
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── LÍNEA CONECTORA ─────────────────────────────────── */}
-      {/* Línea vertical delgada que conecta la card con el dot */}
+      {/* Línea vertical delgada que conecta la card con el dot.
+          Siempre visible, pero más opaca en estado normal y más brillante al hover.
+          La altura es fija (16px) en ambos modos. */}
       <div style={{
         width: 1,                                   // 1px de ancho
         height: 16,                                 // 16px de alto
@@ -661,10 +765,17 @@ function Node({ entry, color, index, onClick }) {
       }} />
 
       {/* ── DOT (CÍRCULO PULSANTE) ──────────────────────────── */}
-      {/* Círculo que se posa sobre la línea de tiempo central */}
+      {/* Círculo que se posa sobre la línea de tiempo central.
+          Es el punto de anclaje visual que conecta la tarjeta con la línea.
+          - Tamaño: 10px normal, 14px al hover.
+          - Borde siempre del color del cuadrante.
+          - Brillo neón al hover.
+          - Anillo expansivo al hover (efecto de pulso). */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
 
-        {/* Anillo de pulso: solo visible al hover */}
+        {/* Anillo de pulso: solo visible al hover.
+            Se expande desde el centro del dot con una animación circular.
+            Esto da feedback visual de que el nodo es interactivo. */}
         {hovered && (
           <div style={{
             position: 'absolute',
@@ -675,7 +786,10 @@ function Node({ entry, color, index, onClick }) {
           }} />
         )}
 
-        {/* Dot principal */}
+        {/* Dot principal: el círculo central que marca la posición del nodo.
+            - Normal: fondo oscuro con borde de color y brillo tenue.
+            - Hover: relleno con el color del cuadrante, más grande y con brillo neón.
+            - Transición elástica para un efecto suave y juguetón. */}
         <div style={{
           width: hovered ? 14 : 10,              // Crece al hover
           height: hovered ? 14 : 10,
@@ -694,7 +808,6 @@ function Node({ entry, color, index, onClick }) {
     </div>
   )
 }
-
 
 // ══════════════════════════════════════════════════════════════════
 //  PANTALLA DE CARGA
@@ -779,31 +892,32 @@ function LoadingScreen() {
 //  El botón activo tiene el dot encendido y una línea inferior.
 // ══════════════════════════════════════════════════════════════════
 
-function QuadrantNav({ quadrants, current, onChange }) {
+function QuadrantNav({ quadrants, current, onChange, isMobile }) {
   return (
     <div style={{
-      position: 'fixed', bottom: 28, left: '50%',
+      position: 'fixed', bottom: isMobile ? 16 : 28, left: '50%',
       transform: 'translateX(-50%)',            // Centra horizontalmente
       zIndex: 100,
-      display: 'flex', gap: 0, alignItems: 'stretch',
+      display: 'flex', gap: isMobile ? 8 : 0, alignItems: 'stretch',
       background: 'rgba(8,10,18,0.8)',          // Fondo oscuro semitransparente
       backdropFilter: 'blur(24px)',             // Glassmorphism
       border: '1px solid rgba(255,255,255,0.07)',
       borderRadius: 12,
       overflow: 'hidden',                       // Los botones no desbordan el borde redondeado
       animation: 'h-nav-in .6s .3s ease both', // Aparece desde abajo con delay de 0.3s
+      maxWidth: isMobile ? 'calc(100vw - 24px)' : 'none',
     }}>
       {quadrants.map((q, i) => {
         const meta = QM[q.id] || QM.q1    // Metadatos del cuadrante (color, nombre)
         const active = i === current       // ¿Es el cuadrante actualmente visible?
         return (
           <button key={q.id} onClick={() => onChange(i)} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '11px 20px',
+            display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 8,
+            padding: isMobile ? '11px 14px' : '11px 20px',
             background: active ? `${meta.color}12` : 'transparent',   // Fondo tintado si activo
             border: 'none',
             // Separador entre botones: solo en la derecha de cada uno excepto el último
-            borderRight: i < quadrants.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+            borderRight: !isMobile && i < quadrants.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
             cursor: 'pointer',
             transition: 'all .2s ease',
             position: 'relative',            // Para posicionar el indicador activo (absolute)
@@ -828,16 +942,18 @@ function QuadrantNav({ quadrants, current, onChange }) {
               transition: 'all .2s',
             }} />
 
-            {/* Nombre del cuadrante */}
-            <span style={{
-              fontFamily: T.ff.mono, fontSize: 10,
-              color: active ? meta.color : T.onVariant,   // Color activo vs apagado
-              letterSpacing: '.12em', textTransform: 'uppercase',
-              whiteSpace: 'nowrap',
-              transition: 'color .2s',
-            }}>
-              {q.name || meta.name}   {/* Prefiere el nombre de Firebase; cae en el nombre local */}
-            </span>
+            {/* Nombre del cuadrante — oculto en móvil, solo se ven los dots (más fácil de tocar) */}
+            {!isMobile && (
+              <span style={{
+                fontFamily: T.ff.mono, fontSize: 10,
+                color: active ? meta.color : T.onVariant,   // Color activo vs apagado
+                letterSpacing: '.12em', textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+                transition: 'color .2s',
+              }}>
+                {q.name || meta.name}   {/* Prefiere el nombre de Firebase; cae en el nombre local */}
+              </span>
+            )}
           </button>
         )
       })}
@@ -908,7 +1024,7 @@ function ArrowBtn({ dir, color, onClick }) {
 //    7. Track de la línea de tiempo con nodos
 // ══════════════════════════════════════════════════════════════════
 
-function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry }) {
+function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }) {
   const meta     = QM[quadrant.id] || QM.q1                        // Metadatos del cuadrante
   const color    = meta.color                                        // Color principal del cuadrante
   const qEntries = entries.filter(e => e.quadrantId === quadrant.id) // Solo las entradas de este cuadrante
@@ -942,7 +1058,10 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry }) {
           moviendo la tarjeta debajo de la línea cuando xPct < CARD_FLIP_THRESHOLD.
           Si cambias top/right aquí, ajusta también CARD_FLIP_THRESHOLD en <Node>. */}
       <div style={{
-        position: 'absolute', top: 80, right: 100,   // Posición fija: 80px del top, 100px del right
+        position: 'absolute',
+        top: isMobile ? 60 : 80,
+        right: isMobile ? 20 : 100,
+        left: isMobile ? 20 : 'auto',   // En móvil ocupa el ancho disponible en vez de flotar a la derecha
         zIndex: 20,                                    // Sobre el canvas y la viñeta
         animation: 'h-era-in .6s ease both',          // Entrada deslizando desde la izquierda
       }}>
@@ -961,7 +1080,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry }) {
         {/* Nombre del cuadrante: grande y prominente */}
         <h2 style={{
           fontFamily: T.ff.display,
-          fontSize: 'clamp(2rem,4.5vw,3.5rem)',   // Responsive: entre 2rem y 3.5rem
+          fontSize: isMobile ? 'clamp(1.4rem,6vw,2rem)' : 'clamp(2rem,4.5vw,3.5rem)',   // Más compacto en móvil
           fontWeight: 800, color: '#fff',
           lineHeight: 1,
           textShadow: `0 0 60px ${color}40, 0 2px 40px rgba(0,0,0,.8)`,
@@ -982,28 +1101,33 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry }) {
 
       {/* Capa 4b: descripción — bottom left */}
       <div style={{
-        position: 'absolute', bottom: 150, left: 60,   // 150px del fondo, 60px de la izquierda
-        maxWidth: 340,                                   // Ancho máximo del texto descriptivo
+        position: 'absolute',
+        bottom: isMobile ? 90 : 150,
+        left: isMobile ? 20 : 60,
+        right: isMobile ? 20 : 'auto',
+        maxWidth: isMobile ? 'calc(100% - 40px)' : 340,   // Ancho máximo del texto descriptivo
         zIndex: 20,
         animation: 'h-slideup .7s .15s ease both',      // Aparece 0.15s después que el título
       }}>
         <p style={{
-          fontFamily: T.ff.body, fontSize: 13,
+          fontFamily: T.ff.body,
+          fontSize: isMobile ? 12 : 13,
           color: T.onVariant,
-          lineHeight: 1.75,
+          lineHeight: isMobile ? 1.6 : 1.75,
         }}>
           {quadrant.description}   {/* Texto descriptivo de Firebase */}
         </p>
       </div>
 
-      {/* Capa 5: marca de agua — número gigante semi-invisible */}
+      {/* Capa 5: marca de agua — número gigante semi-invisible.
+          En móvil se reduce y se hace aún más tenue para no restar legibilidad. */}
       <div style={{
-        position: 'absolute', right: 48, top: '50%',
+        position: 'absolute', right: isMobile ? 16 : 48, top: '50%',
         transform: 'translateY(-60%)',                  // -60% lo sube un poco respecto al centro
         fontFamily: T.ff.display,
-        fontSize: 'clamp(8rem,18vw,16rem)',             // Muy grande, responsive
+        fontSize: isMobile ? 'clamp(4rem,22vw,7rem)' : 'clamp(8rem,18vw,16rem)',
         fontWeight: 800, lineHeight: 1,
-        color: `${color}03`,                            // Casi invisible: 4% de opacidad
+        color: isMobile ? `${color}02` : `${color}03`,  // Aún más invisible en móvil
         userSelect: 'none', pointerEvents: 'none',      // No interactivo
         zIndex: 1,
         letterSpacing: '-.04em',
@@ -1022,10 +1146,10 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry }) {
         zIndex: 8,
       }}>
 
-        {/* Línea central horizontal */}
+        {/* Línea central horizontal — más compacta en móvil (menos margen lateral) */}
         <div style={{
           position: 'absolute',
-          left: '12%', right: '15%',  // No llega a los bordes: 12% izq, 15% der
+          left: isMobile ? '8%' : '12%', right: isMobile ? '8%' : '15%',
           top: '50%',                  // Centrada verticalmente en el track
           height: 10,                  // Altura visual de la línea (gruesa, degradada)
           transform: 'translateY(-50%)',
@@ -1085,6 +1209,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry }) {
             color={color}
             index={i}                    // Para el delay escalonado de la animación
             onClick={() => onSelectEntry(entry)}
+            isMobile={isMobile}
           />
         ))}
 
@@ -1118,6 +1243,10 @@ export default function Timeline() {
   const [loaded,        setLoaded]        = useState(false) // ¿Terminó la carga?
   const [currentQ,      setCurrentQ]      = useState(0)     // Índice del cuadrante visible
   const [selectedEntry, setSelectedEntry] = useState(null)  // Entrada abierta en el Reader (null = cerrado)
+
+  // Detección responsive: móvil (≤640px) y tablet (≤1023px)
+  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isTablet = useMediaQuery('(max-width: 1023px)')
 
   // ── Carga inicial de Firebase ──────────────────────────────────
   // Se ejecuta una sola vez al montar el componente (array vacío []).
@@ -1174,6 +1303,35 @@ export default function Timeline() {
     return () => window.removeEventListener('wheel', onWheel)
   }, [loaded, selectedEntry, quadrants.length])
 
+  // ── Navegación por swipe (solo móvil) ─────────────────────────
+  // Como en móvil se ocultan los ArrowBtn laterales, el swipe horizontal
+  // sobre la pantalla permite moverse entre cuadrantes igual que el wheel
+  // en desktop. Se ignora si hay Reader abierto (el Reader tiene su propio
+  // scroll vertical y no debe interpretarse como swipe de cuadrante).
+  useEffect(() => {
+    if (!loaded || !isMobile || selectedEntry) return
+    let startX = 0, startY = 0
+    const onTouchStart = e => {
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+    }
+    const onTouchEnd = e => {
+      const dx = e.changedTouches[0].clientX - startX
+      const dy = e.changedTouches[0].clientY - startY
+      // Solo cuenta como swipe horizontal si el movimiento en X domina claramente sobre Y
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx < 0) setCurrentQ(q => Math.min(q + 1, quadrants.length - 1))   // Swipe izquierda → siguiente
+        else        setCurrentQ(q => Math.max(q - 1, 0))                     // Swipe derecha → anterior
+      }
+    }
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchend', onTouchEnd, { passive: true })
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [loaded, isMobile, selectedEntry, quadrants.length])
+
   // ── Estado de carga ────────────────────────────────────────────
   if (!loaded) return <LoadingScreen />
 
@@ -1196,6 +1354,7 @@ export default function Timeline() {
           entries={entries}
           isActive={i === currentQ}      // Solo el cuadrante activo renderiza
           onSelectEntry={setSelectedEntry}
+          isMobile={isMobile}
         />
       ))}
 
@@ -1204,7 +1363,7 @@ export default function Timeline() {
         position: 'fixed', top: 0, left: 0, right: 0,
         zIndex: 50,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '18px 52px',
+        padding: isMobile ? '12px 20px' : '18px 52px',
         background: 'linear-gradient(to bottom,rgba(5,5,5,0.85) 0%,transparent 100%)',
         // Degradado: opaco arriba, transparente abajo (no tapa el contenido)
         pointerEvents: 'none',   // El header no captura clics (el logo sí, con pointerEvents:auto)
@@ -1212,7 +1371,9 @@ export default function Timeline() {
 
         {/* Logo / nombre de la app */}
         <div style={{
-          fontFamily: T.ff.display, fontSize: 17, fontWeight: 800,
+          fontFamily: T.ff.display,
+          fontSize: isMobile ? 13 : 17,
+          fontWeight: 800,
           color: meta.color,                              // Cambia de color según el cuadrante
           textShadow: `0 0 30px ${meta.color}50`,        // Halo del color del cuadrante
           letterSpacing: '.04em',
@@ -1237,13 +1398,13 @@ export default function Timeline() {
        
       </header>
 
-      {/* Botón flecha izquierda: solo si hay cuadrante anterior */}
-      {currentQ > 0 && (
+      {/* Botón flecha izquierda: solo si hay cuadrante anterior — oculto en móvil (se usa QuadrantNav) */}
+      {!isMobile && currentQ > 0 && (
         <ArrowBtn dir="left" color={meta.color} onClick={() => setCurrentQ(q => q - 1)} />
       )}
 
-      {/* Botón flecha derecha: solo si hay cuadrante siguiente */}
-      {currentQ < quadrants.length - 1 && (
+      {/* Botón flecha derecha: solo si hay cuadrante siguiente — oculto en móvil */}
+      {!isMobile && currentQ < quadrants.length - 1 && (
         <ArrowBtn dir="right" color={meta.color} onClick={() => setCurrentQ(q => q + 1)} />
       )}
 
@@ -1252,6 +1413,7 @@ export default function Timeline() {
         quadrants={quadrants}
         current={currentQ}
         onChange={setCurrentQ}
+        isMobile={isMobile}
       />
 
       {/* Reader: se monta cuando hay una entrada seleccionada */}

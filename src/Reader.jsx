@@ -25,6 +25,25 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
+// ══════════════════════════════════════════════════════════════════
+//  HOOK: useMediaQuery
+//  Detecta si un media query CSS coincide, y se actualiza en vivo
+//  cuando cambia el tamaño de ventana o la orientación del celular.
+// ══════════════════════════════════════════════════════════════════
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  )
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    const listener = () => setMatches(media.matches)
+    listener()
+    media.addEventListener('change', listener)
+    return () => media.removeEventListener('change', listener)
+  }, [query])
+  return matches
+}
+
 // ── TOKENS DE DISEÑO ─────────────────────────────────────────────
 const T = {
   bg:        '#050505',   // Fondo principal (negro espacio)
@@ -238,17 +257,17 @@ function BlockSeparator({ color }) {
 }
 
 // ── LOG / BITÁCORA (● texto) ──────────────────────────────────────
-function BlockLog({ text, color }) {
+function BlockLog({ text, color, isMobile }) {
   const clean = text.replace(/^[●•►]\s*/, '')
   return (
     <div style={{
-      fontFamily: T.ff.mono, fontSize: 12,
+      fontFamily: T.ff.mono, fontSize: isMobile ? 11 : 12,
       color: '#b2b1f0',
       background: `linear-gradient(to right,${color}08,transparent)`,
       border: `1px solid ${color}18`,
       borderLeft: `2px solid ${color}70`,
       borderRadius: '0 8px 8px 0',
-      padding: '12px 18px', marginBottom: 16,
+      padding: isMobile ? '10px 14px' : '12px 18px', marginBottom: 16,
       lineHeight: 1.8, letterSpacing: '.02em', textAlign: 'left',
     }}>
       {renderLines(clean)}
@@ -257,7 +276,7 @@ function BlockLog({ text, color }) {
 }
 
 // ── CITA ("texto  o  —texto) ──────────────────────────────────────
-function BlockQuote({ text, color }) {
+function BlockQuote({ text, color, isMobile }) {
   let d = text
   if (d.startsWith('—')) d = d.slice(1).trimStart()
   if (d.startsWith('"')) d = d.slice(1).trimStart()
@@ -265,9 +284,10 @@ function BlockQuote({ text, color }) {
   return (
     <div style={{
       position: 'relative',
-      fontFamily: T.ff.body, fontSize: 15, fontStyle: 'italic',
+      fontFamily: T.ff.body, fontSize: isMobile ? 13 : 15, fontStyle: 'italic',
       color: 'rgba(251, 251, 251, 0.6)',
-      padding: '20px 24px 20px 28px', margin: '28px 0', lineHeight: 1.9,
+      padding: isMobile ? '16px 16px 16px 20px' : '20px 24px 20px 28px',
+      margin: isMobile ? '20px 0' : '28px 0', lineHeight: 1.9,
     }}>
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(to bottom,transparent,${color}50,transparent)` }} />
       <div style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', border: `1px solid ${color}60`, background: T.bg }} />
@@ -277,19 +297,26 @@ function BlockQuote({ text, color }) {
 }
 
 // ── DATO TÉCNICO (Clave: valor) ───────────────────────────────────
-function BlockData({ text }) {
+function BlockData({ text, isMobile }) {
   const ci  = text.indexOf(':')
   const key = text.slice(0, ci).trim()
   const val = text.slice(ci + 1).trim()
   return (
-    // Valor del texto
-    <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', fontFamily: T.ff.mono, fontSize: 12.5, borderBottom: '2px solid rgba(255,255,255,0.04)', padding: '8px 0', }}>
-    
-    {/* Clave del texto - Fija */}
-      <span style={{ color: T.onVariant, minWidth: 190, flexShrink: 0, fontSize: 13.5 }}>{key}</span>
-    
+    // Valor del texto — en móvil apila clave/valor en vez de ponerlos lado a lado
+    // (una minWidth fija de 190px no cabe en pantallas de 320-375px)
+    <div style={{
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? 4 : 20, alignItems: isMobile ? 'flex-start' : 'flex-start',
+      fontFamily: T.ff.mono, fontSize: isMobile ? 11 : 12.5,
+      borderBottom: '2px solid rgba(255,255,255,0.04)', padding: '8px 0',
+    }}>
+
+    {/* Clave del texto - Fija en desktop, arriba en móvil */}
+      <span style={{ color: T.onVariant, minWidth: isMobile ? 'auto' : 190, flexShrink: 0, fontSize: isMobile ? 11 : 13.5 }}>{key}</span>
+
     {/* VALOR - derecha con renderLines y justificado */}
-      <div style={{ color: T.onSurface, flex: 1, textAlign: 'justify', lineHeight: 1.7, }}>
+      <div style={{ color: T.onSurface, flex: 1, textAlign: isMobile ? 'left' : 'justify', lineHeight: 1.7, }}>
         {renderLines(val)}
       </div>
     </div>
@@ -299,15 +326,15 @@ function BlockData({ text }) {
 // ── PÁRRAFO NARRATIVO (texto sin marcador) ────────────────────────
 // Narrador omnisciente, descripciones de escena, contexto del mundo.
 // Soporta saltos de línea con | y ||
-function BlockParagraph({ text, isFirst }) {
+function BlockParagraph({ text, isFirst, isMobile }) {
   return (
     <p style={{
       fontFamily: T.ff.body,
-      fontSize: 16.5,
-      lineHeight: 2.05,
+      fontSize: isMobile ? 14.5 : 16.5,
+      lineHeight: isMobile ? 1.8 : 2.05,
       color: T.onSurface,
       fontWeight: 300, marginBottom: '1.7rem',
-      textAlign: 'justify',
+      textAlign: isMobile ? 'left' : 'justify',   // El justificado en columnas angostas crea ríos de espacio
     }}>
       {renderLines(text)}  
     </p>
@@ -316,15 +343,15 @@ function BlockParagraph({ text, isFirst }) {
 
 
 // ── SUBTÍTULO (### Texto) ─────────────────────────────────────────
-function BlockSubheading({ text, color }) {
+function BlockSubheading({ text, color, isMobile }) {
   const cleanText = text.replace(/^###\s*/, '')
   return (
-    <div style={{ margin: '32px 0 16px 0' }}>
-      <h3 style={{ fontFamily: T.ff.display, fontSize: 22.5, fontWeight: 500, color: `${color}dd`, letterSpacing: '-0.02em', marginBottom: 20 }}>
+    <div style={{ margin: isMobile ? '24px 0 12px 0' : '32px 0 16px 0' }}>
+      <h3 style={{ fontFamily: T.ff.display, fontSize: isMobile ? 17 : 22.5, fontWeight: 500, color: `${color}dd`, letterSpacing: '-0.02em', marginBottom: isMobile ? 14 : 20 }}>
         {cleanText}
       </h3>
-      {/* Línea similar a la de título */}
-      <div style={{ width: 500, height: 2, borderRadius: 1, background: `linear-gradient(to right,${color}50,transparent)`, marginBottom: 30 }} 
+      {/* Línea similar a la de título — ancho relativo, nunca fijo, para no desbordar en móvil */}
+      <div style={{ width: '100%', maxWidth: 500, height: 2, borderRadius: 1, background: `linear-gradient(to right,${color}50,transparent)`, marginBottom: isMobile ? 20 : 30 }} 
       />
     </div>
   )
@@ -346,18 +373,18 @@ function BlockSignature({ color }) {
 // Monólogo interno en el presente de la narración.
 // Asteriscos al inicio y al fin — no aparecen en pantalla.
 // Borde punteado izquierdo + símbolo ◈ + violeta claro.
-function BlockThought({ text }) {
+function BlockThought({ text, isMobile }) {
   // Elimina el * de inicio y de fin
   const clean = text.replace(/^\*\s*/, '').replace(/\s*\*$/, '')
   return (
     <div style={{
       position: 'relative',
-      fontFamily: T.ff.body, fontSize: 15.5, fontStyle: 'italic',
+      fontFamily: T.ff.body, fontSize: isMobile ? 13.5 : 15.5, fontStyle: 'italic',
       color: T.thought,
       background: 'rgba(200,184,255,0.04)',
       borderRadius: 8,
-      padding: '16px 20px 16px 28px',
-      margin: '20px 0', lineHeight: 1.95,
+      padding: isMobile ? '14px 16px 14px 22px' : '16px 20px 16px 28px',
+      margin: isMobile ? '16px 0' : '20px 0', lineHeight: isMobile ? 1.75 : 1.95,
     }}>
       {/* Borde punteado izquierdo: lo punteado indica que es interno */}
       <div style={{
@@ -374,13 +401,13 @@ function BlockThought({ text }) {
 // ── DIÁLOGO PRESENTE (:D texto) ───────────────────────────────────
 // Palabras dichas en voz alta en el hilo narrativo presente.
 // Raya em + texto. Color principal para máxima legibilidad.
-function BlockDialogue({ text }) {
+function BlockDialogue({ text, isMobile }) {
   const clean = text.replace(/^:D\s*/, '').trim()
   return (
     <div style={{
-      fontFamily: T.ff.body, fontSize: 16,
-      color: T.onSurface, lineHeight: 1.85,
-      margin: '4px 0', paddingLeft: 20,
+      fontFamily: T.ff.body, fontSize: isMobile ? 14 : 16,
+      color: T.onSurface, lineHeight: isMobile ? 1.7 : 1.85,
+      margin: '4px 0', paddingLeft: isMobile ? 12 : 20,
       display: 'flex', gap: 10, alignItems: 'flex-start',
     }}>
       <span style={{ color: 'rgba(232,228,227,0.3)', flexShrink: 0, fontWeight: 300, marginTop: 2, fontSize: 18 }}>—</span>
@@ -392,13 +419,13 @@ function BlockDialogue({ text }) {
 // ── DIÁLOGO EN ARCHIVO PIA (:P texto) ────────────────────────────
 // Palabras dichas dentro de un recuerdo o grabación reproducida por el PIA.
 // Más apagado que el diálogo presente: pertenece al pasado registrado.
-function BlockDialoguePia({ text }) {
+function BlockDialoguePia({ text, isMobile }) {
   const clean = text.replace(/^:P\s*/, '').trim()
   return (
     <div style={{
-      fontFamily: T.ff.body, fontSize: 14.5,
+      fontFamily: T.ff.body, fontSize: isMobile ? 13 : 14.5,
       color: 'rgba(232,228,227,0.65)',
-      lineHeight: 1.8, margin: '4px 0', paddingLeft: 28,
+      lineHeight: isMobile ? 1.65 : 1.8, margin: '4px 0', paddingLeft: isMobile ? 16 : 28,
       display: 'flex', gap: 10, alignItems: 'flex-start',
       borderLeft: `1px solid ${T.pia}20`,
     }}>
@@ -411,12 +438,12 @@ function BlockDialoguePia({ text }) {
 // ── INICIO DE ARCHIVO PIA (>PIA Título) ──────────────────────────
 // Cabecera visual de interfaz tecnológica.
 // Verde PIA, monospace, borde superior sólido, indicador pulsante.
-function BlockPiaStart({ text }) {
+function BlockPiaStart({ text, isMobile }) {
   const title = text.replace(/^>PIA\s*/i, '').trim()
   return (
     <div style={{
       fontFamily: T.ff.mono,
-      margin: '36px 0 0 0',
+      margin: isMobile ? '24px 0 0 0' : '36px 0 0 0',
       borderTop: `1px solid ${T.pia}50`,
       borderLeft: `2px solid ${T.pia}`,
       borderRadius: '0 8px 0 0',
@@ -424,8 +451,9 @@ function BlockPiaStart({ text }) {
     }}>
       <div style={{
         background: `linear-gradient(to right,${T.pia}15,transparent)`,
-        padding: '10px 18px',
+        padding: isMobile ? '9px 14px' : '10px 18px',
         display: 'flex', alignItems: 'center', gap: 12,
+        flexWrap: 'wrap',
       }}>
         {/* Indicador de reproducción */}
         <span style={{ color: T.pia, fontSize: 10, letterSpacing: '.1em' }}>▶ PIA</span>
@@ -443,15 +471,15 @@ function BlockPiaStart({ text }) {
 
 // ── FIN DE ARCHIVO PIA (<PIA) ─────────────────────────────────────
 // Cierra visualmente el bloque del archivo PIA.
-function BlockPiaEnd() {
+function BlockPiaEnd({ isMobile }) {
   return (
     <div style={{
       fontFamily: T.ff.mono,
       borderBottom: `1px solid ${T.pia}40`,
       borderLeft: `2px solid ${T.pia}40`,
       borderRadius: '0 0 8px 0',
-      margin: '0 0 36px 0',
-      padding: '8px 18px',
+      margin: isMobile ? '0 0 24px 0' : '0 0 36px 0',
+      padding: isMobile ? '8px 14px' : '8px 18px',
       background: `linear-gradient(to right,${T.pia}06,transparent)`,
       display: 'flex', alignItems: 'center', gap: 10,
     }}>
@@ -465,24 +493,24 @@ function BlockPiaEnd() {
 // Placeholder visual para media incrustada.
 // Cuando Firebase Storage esté activo (Fase 3), este bloque
 // puede evolucionar para mostrar la imagen/audio real.
-function BlockMedia({ text, type }) {
+function BlockMedia({ text, type, isMobile }) {
   // Extrae la descripción quitando el marcador inicial
   const clean   = text.replace(/^@(img|gif|audio)\s*/i, '').trim()
   const icon    = type === 'media-audio' ? '♪' : type === 'media-gif' ? '◎' : '⬚'
   const label   = type === 'media-audio' ? 'Audio' : type === 'media-gif' ? 'GIF' : 'Imagen'
   return (
     <div style={{
-      margin: '28px 0',
+      margin: isMobile ? '20px 0' : '28px 0',
       border: `1px dashed ${T.media}40`,
       borderRadius: 8,
-      padding: '20px 24px',
+      padding: isMobile ? '14px 16px' : '20px 24px',
       background: 'rgba(255,184,108,0.03)',
-      display: 'flex', alignItems: 'flex-start', gap: 16,
+      display: 'flex', alignItems: 'flex-start', gap: isMobile ? 12 : 16,
     }}>
-      <div style={{ fontSize: 24, color: T.media, opacity: 0.7, flexShrink: 0, lineHeight: 1, marginTop: 2 }}>{icon}</div>
+      <div style={{ fontSize: isMobile ? 20 : 24, color: T.media, opacity: 0.7, flexShrink: 0, lineHeight: 1, marginTop: 2 }}>{icon}</div>
       <div>
         <div style={{ fontFamily: T.ff.mono, fontSize: 9, color: T.media, letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
-        <div style={{ fontFamily: T.ff.body, fontSize: 13, color: 'rgba(232,228,227,0.5)', fontStyle: 'italic', lineHeight: 1.6 }}>{clean}</div>
+        <div style={{ fontFamily: T.ff.body, fontSize: isMobile ? 12 : 13, color: 'rgba(232,228,227,0.5)', fontStyle: 'italic', lineHeight: 1.6 }}>{clean}</div>
       </div>
     </div>
   )
@@ -494,7 +522,7 @@ function BlockMedia({ text, type }) {
 //  Divide el texto de la sección por \n\n y renderiza cada bloque.
 // ══════════════════════════════════════════════════════════════════
 
-function renderSection(sectionContent, color) {
+function renderSection(sectionContent, color, isMobile) {
   // El preprocesador ya garantizó que cada bloque especial
   // está rodeado de líneas vacías, así que split('\n\n') es suficiente.
   const blocks = sectionContent.split('\n\n').filter(b => b.trim())
@@ -504,22 +532,22 @@ function renderSection(sectionContent, color) {
     const type = detectBlockType(block)
     switch (type) {
       case 'separator':    return <BlockSeparator  key={i} color={color} />
-      case 'log':          return <BlockLog         key={i} text={block} color={color} />
-      case 'quote':        return <BlockQuote       key={i} text={block} color={color} />
-      case 'data':         return <BlockData        key={i} text={block} />
-      case 'subheading':   return <BlockSubheading  key={i} text={block} color={color} />
+      case 'log':          return <BlockLog         key={i} text={block} color={color} isMobile={isMobile} />
+      case 'quote':        return <BlockQuote       key={i} text={block} color={color} isMobile={isMobile} />
+      case 'data':         return <BlockData        key={i} text={block} isMobile={isMobile} />
+      case 'subheading':   return <BlockSubheading  key={i} text={block} color={color} isMobile={isMobile} />
       case 'signature':    return <BlockSignature   key={i} color={color} />
-      case 'thought':      return <BlockThought     key={i} text={block} />
-      case 'dialogue':     return <BlockDialogue    key={i} text={block} />
-      case 'dialogue-pia': return <BlockDialoguePia key={i} text={block} />
-      case 'pia-start':    return <BlockPiaStart    key={i} text={block} />
-      case 'pia-end':      return <BlockPiaEnd      key={i} />
+      case 'thought':      return <BlockThought     key={i} text={block} isMobile={isMobile} />
+      case 'dialogue':     return <BlockDialogue    key={i} text={block} isMobile={isMobile} />
+      case 'dialogue-pia': return <BlockDialoguePia key={i} text={block} isMobile={isMobile} />
+      case 'pia-start':    return <BlockPiaStart    key={i} text={block} isMobile={isMobile} />
+      case 'pia-end':      return <BlockPiaEnd      key={i} isMobile={isMobile} />
       case 'media-img':
       case 'media-gif':
-      case 'media-audio':  return <BlockMedia       key={i} text={block} type={type} />
+      case 'media-audio':  return <BlockMedia       key={i} text={block} type={type} isMobile={isMobile} />
       default: {
         const isFirst = pCount++ === 0
-        return <BlockParagraph key={i} text={block} isFirst={isFirst} />
+        return <BlockParagraph key={i} text={block} isFirst={isFirst} isMobile={isMobile} />
       }
     }
   })
@@ -545,44 +573,46 @@ function ProgressBar({ current, total, color }) {
 //  NAVEGACIÓN ENTRE PÁGINAS
 // ══════════════════════════════════════════════════════════════════
 
-function NavButton({ onClick, disabled, color, label, primary }) {
+function NavButton({ onClick, disabled, color, label, primary, isMobile }) {
   const [hov, setHov] = useState(false)
   return (
     <button onClick={onClick} disabled={disabled}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        fontFamily: T.ff.mono, fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase',
+        fontFamily: T.ff.mono, fontSize: isMobile ? 9.5 : 10.5, letterSpacing: '.14em', textTransform: 'uppercase',
         color:      disabled ? T.outline : (primary && hov) ? T.bg : color,
         background: disabled ? 'transparent' : primary && hov ? color : hov ? `${color}12` : primary ? `${color}10` : 'transparent',
         border:     `1px solid ${disabled ? T.outline + '40' : hov ? color : color + '30'}`,
-        borderRadius: 25, padding: '9px 22px',
+        borderRadius: 25, padding: isMobile ? '8px 14px' : '9px 22px',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
         transition: 'all .22s ease',
         boxShadow: primary && hov ? `0 0 20px ${color}40` : 'none',
         whiteSpace: 'nowrap',
+        minHeight: isMobile ? 36 : 'auto',   // Área táctil cómoda en móvil
       }}>
       {label}
     </button>
   )
 }
 
-function PageNav({ current, total, sections, color, onPrev, onNext, onJump }) {
+function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMobile }) {
   if (total <= 1) return null
   return (
     <>
       {/* ── BOTÓN ANTERIOR ───────────────────────────────────────────────
           Posicionado fijo en el centro vertical del lado izquierdo.
           No interfiere con el scroll del contenido porque es fixed.
-          Se oculta con opacity cuando está en la primera página.      */}
+          Se oculta con opacity cuando está en la primera página.
+          En móvil usa solo "←" para no invadir el ancho de la pantalla. */}
       <div style={{
         position: 'fixed',
-        left: 20,                        // Pegado al borde izquierdo con margen mínimo
+        left: isMobile ? 10 : 20,        // Pegado al borde izquierdo con margen mínimo
         top: '50%',                      // Centro vertical de la pantalla
         transform: 'translateY(-50%)',   // Ajuste exacto al centro (compensa la altura propia)
         zIndex: 350,
       }}>
-        <NavButton onClick={onPrev} disabled={current === 0} color={color} label="← ANTERIOR" />
+        <NavButton onClick={onPrev} disabled={current === 0} color={color} label={isMobile ? '←' : '← ANTERIOR'} isMobile={isMobile} />
       </div>
 
       {/* ── BOTÓN SIGUIENTE ──────────────────────────────────────────────
@@ -590,102 +620,92 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump }) {
           primary=true activa el estilo destacado (fondo de color).   */}
       <div style={{
         position: 'fixed',
-        right: 20,                       // Pegado al borde derecho con margen mínimo
+        right: isMobile ? 10 : 20,       // Pegado al borde derecho con margen mínimo
         top: '50%',                      // Centro vertical de la pantalla
         transform: 'translateY(-50%)',   // Ajuste exacto al centro
         zIndex: 350,
       }}>
-        <NavButton onClick={onNext} disabled={current === total - 1} color={color} label="SIGUIENTE →" primary />
+        <NavButton onClick={onNext} disabled={current === total - 1} color={color} label={isMobile ? '→' : 'SIGUIENTE →'} primary isMobile={isMobile} />
       </div>
 
       {/* ── INDICADORES DE CAPÍTULO (PUNTOS) ────────────────────────────
           Barra fija en la parte inferior, centrada horizontalmente.
-          Los puntos son más grandes y visibles que antes:
-          - Inactivos: círculo sólido 8×8 px con mayor opacidad (55%)
-          - Activo:    barra ancha 32×8 px con glow y brillo completo
-          Se eliminó el gradiente oscuro de fondo para no bloquear texto. */}
+          Ahora solo se muestran 3 indicadores como máximo: anterior,
+          actual y siguiente — no los N capítulos completos — para que
+          la barra sea compacta incluso con decenas de secciones.
+          Altura fija de 25px con fondo opaco (no deja ver el texto
+          del contenido por debajo), sin gradiente ni etiqueta de título. */}
       <div style={{
         position: 'fixed',
-        bottom: 20,                      // Separado del borde inferior
+        bottom: 0,                       // Pegada al fondo de la página
         left: 0,
         right: 0,
+        height: 25,                      // Grosor máximo solicitado
         zIndex: 350,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,                          // Espacio entre puntos (antes 6)
-        flexWrap: 'wrap',
-        padding: '20px 80px 20px',       // Arriba / lados (evita solapar botones) / abajo
-        background: 'linear-gradient(to top, rgba(5,5,5,1) 60%, rgba(5,5,5,0.85))', // Fondo opaco que se funde hacia arriba
+        gap: 8,
+        padding: '0 60px',               // Espacio lateral para no chocar con los botones ← / →
+        background: 'rgba(5,5,5,0.96)',  // Opaco: evita que el texto se transparente por debajo
+        borderTop: '1px solid rgba(255,255,255,0.06)',
         pointerEvents: 'none',           // El contenedor no captura clics, solo los botones internos
       }}>
-        {sections.map((s, i) => {
-          const active = i === current
-          return (
-            <button
-              key={i}
-              onClick={() => onJump(i)}
-              title={s.title || `Capítulo ${i + 1}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 5,
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '6px 4px',      // Área táctil generosa
-                pointerEvents: 'auto',   // Reactiva clics solo en cada botón
-              }}
-            >
-              {/* Indicador gráfico: barra larga si activo, punto redondo si no */}
-              <div style={{
-                width:        active ? 32 : 8,   // Activo: más ancho para destacar
-                height:       8,                  // Altura aumentada (antes 3) para más visibilidad
-                borderRadius: active ? 4 : '50%', // Cápsula si activo, círculo si inactivo
-                background:   active ? color : `${color}55`, // Inactivo más visible (antes 28%)
-                boxShadow:    active ? `0 0 12px ${color}, 0 0 24px ${color}60` : `0 0 4px ${color}30`,
-              }} />
-
-              {/* Etiqueta de título: solo aparece bajo el punto activo */}
-              {s.title && active && (
+        {/* Ventana deslizante de 3 índices: [actual-1, actual, actual+1],
+            recortada en los bordes (primera y última página muestran solo 2). */}
+        {[current - 1, current, current + 1]
+          .filter(i => i >= 0 && i < total)
+          .map(i => {
+            const active = i === current
+            return (
+              <button
+                key={i}
+                onClick={() => onJump(i)}
+                title={sections[i]?.title || `Capítulo ${i + 1}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 8,             // Área táctil generosa aunque el punto sea pequeño
+                  pointerEvents: 'auto',  // Reactiva clics solo en cada botón
+                }}
+              >
+                {/* Indicador gráfico: barra corta si es el actual, punto si es prev/next */}
                 <div style={{
-                  fontFamily:    T.ff.mono,
-                  fontSize:      8.5,
-                  color,
-                  letterSpacing: '.09em',
-                  textTransform: 'uppercase',
-                  maxWidth:      90,
-                  overflow:      'hidden',
-                  textOverflow:  'ellipsis',
-                  whiteSpace:    'nowrap',
-                }}>
-                  {s.title}
-                </div>
-              )}
-            </button>
-          )
-        })}
+                  width:        active ? 20 : 6,
+                  height:       6,
+                  borderRadius: active ? 3 : '50%',
+                  background:   active ? color : `${color}55`,
+                  boxShadow:    active ? `0 0 8px ${color}` : 'none',
+                  transition:   'all .2s ease',
+                }} />
+              </button>
+            )
+          })}
       </div>
     </>
   )
 }
 
 
-function CloseButton({ onClick, color, label }) {
+function CloseButton({ onClick, color, label, isMobile }) {
   const [hov, setHov] = useState(false)
   return (
     <button onClick={onClick}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        fontFamily: T.ff.mono, fontSize: 9.5,
+        fontFamily: T.ff.mono, fontSize: isMobile ? 9 : 9.5,
         color: hov ? color : T.onVariant,
         background: 'transparent',
         border: `1px solid ${hov ? color + '60' : T.outline}`,
-        borderRadius: 6, padding: '7px 18px',
+        borderRadius: 6, padding: isMobile ? '8px 14px' : '7px 18px',
         cursor: 'pointer', letterSpacing: '.14em', textTransform: 'uppercase',
-        marginBottom: 44, display: 'flex', alignItems: 'center', gap: 8,
+        marginBottom: isMobile ? 28 : 44, display: 'flex', alignItems: 'center', gap: 8,
         transition: 'all .2s ease',
+        minHeight: 36,   // Área táctil cómoda en móvil
       }}>
       {label}
     </button>
@@ -704,6 +724,7 @@ export default function Reader({ entry, color, onClose }) {
   const [page, setPage]       = useState(0)
   const scrollRef             = useRef(null)
   const [entering, setEntering] = useState(true)
+  const isMobile               = useMediaQuery('(max-width: 640px)')
 
   useEffect(() => { const t = setTimeout(() => setEntering(false), 400); return () => clearTimeout(t) }, [])
 
@@ -732,40 +753,46 @@ export default function Reader({ entry, color, onClose }) {
         
         {/* Barra de acento lateral izquierda — color del cuadrante */}
         <div ref={scrollRef} className="h101-scroll"
-          style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: `clamp(28px,5vh,56px) clamp(24px,9vw,130px) ${total > 1 ? '130px' : '80px'}`, animation: 'h-slideup .4s ease' }}>
+          style={{
+            position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto',
+            padding: isMobile
+              ? `16px 16px ${total > 1 ? '120px' : '80px'}`
+              : `clamp(28px,5vh,56px) clamp(24px,9vw,130px) ${total > 1 ? '130px' : '80px'}`,
+            animation: 'h-slideup .4s ease',
+          }}>
 
           {/* ── Página 0: cabecera completa ── */}
           {page === 0 && (
             <>
-              <CloseButton onClick={onClose} color={color} label="← VOLVER AL UNIVERSO" />
-              <div style={{ maxWidth: 820, margin: '0 auto 52px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 16, fontFamily: T.ff.mono, fontSize: 10, color, letterSpacing: '.2em', textTransform: 'uppercase' }}>
+              <CloseButton onClick={onClose} color={color} label="← VOLVER AL UNIVERSO" isMobile={isMobile} />
+              <div style={{ maxWidth: 820, margin: isMobile ? '0 auto 32px' : '0 auto 52px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 8 : 15, marginBottom: 16, fontFamily: T.ff.mono, fontSize: isMobile ? 9 : 10, color, letterSpacing: '.2em', textTransform: 'uppercase' }}>
                   <div style={{ width: 20, height: 1, background: `linear-gradient(to right,${color},transparent)` }} />
                   {entry.era}
                   <span style={{ color: T.outline }}>·</span>
                   {entry.type}
                   {total > 1 && (<><span style={{ color: T.outline }}>·</span><span style={{ color: T.onVariant }}>{total} SECCIONES</span></>)}
                 </div>
-                <h1 style={{ fontFamily: T.ff.display, fontSize: 'clamp(2rem,4vw,5rem)', fontWeight: 800, color: '#fff', lineHeight: .98, marginBottom: 16, letterSpacing: '-.02em', textShadow: `0 0 80px ${color}35` }}>
+                <h1 style={{ fontFamily: T.ff.display, fontSize: isMobile ? 'clamp(1.6rem,9vw,2.4rem)' : 'clamp(2rem,4vw,5rem)', fontWeight: 800, color: '#fff', lineHeight: 1.05, marginBottom: 16, letterSpacing: '-.02em', textShadow: `0 0 80px ${color}35` }}>
                   {entry.title}
                 </h1>
                 {entry.subtitle && (
-                  <p style={{ fontFamily: T.ff.body, fontSize: 16, fontStyle: 'italic', color: T.onVariant, marginBottom: 28, lineHeight: 1.6 }}>{entry.subtitle}</p>
+                  <p style={{ fontFamily: T.ff.body, fontSize: isMobile ? 13.5 : 16, fontStyle: 'italic', color: T.onVariant, marginBottom: isMobile ? 20 : 28, lineHeight: 1.6 }}>{entry.subtitle}</p>
                 )}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 36, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 10 : 16, marginBottom: isMobile ? 24 : 36, justifyContent: 'center' }}>
                   {entry.tags?.map(tag => (
-                    <span key={tag} style={{ fontFamily: T.ff.mono, fontSize: 10, color, border: `1px solid ${color}30`, padding: '4px 6px', borderRadius: 999, letterSpacing: '.09em', textTransform: 'uppercase', background: `${color}08` }}>{tag}</span>
+                    <span key={tag} style={{ fontFamily: T.ff.mono, fontSize: isMobile ? 9 : 10, color, border: `1px solid ${color}30`, padding: '4px 6px', borderRadius: 999, letterSpacing: '.09em', textTransform: 'uppercase', background: `${color}08` }}>{tag}</span>
                   ))}
                 </div>
-                <div style={{ height: 1, marginBottom: 52, background: `linear-gradient(to right,${color}80,${color}20,transparent)` }} />
+                <div style={{ height: 1, marginBottom: isMobile ? 32 : 52, background: `linear-gradient(to right,${color}80,${color}20,transparent)` }} />
               </div>
             </>
           )}
 
           {/* ── Páginas > 0: cabecera compacta ── */}
           {page > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 44, maxWidth: 820, margin: '0 auto 44px' }}>
-              <button onClick={onClose} style={{ fontFamily: T.ff.mono, fontSize: 11, color: T.onVariant, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color .2s', flexShrink: 0 }}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, maxWidth: 820, margin: isMobile ? '0 auto 28px' : '0 auto 44px' }}>
+              <button onClick={onClose} style={{ fontFamily: T.ff.mono, fontSize: isMobile ? 10 : 11, color: T.onVariant, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color .2s', flexShrink: 0, minHeight: isMobile ? 36 : 'auto' }}
                 onMouseEnter={e => e.currentTarget.style.color = color}
                 onMouseLeave={e => e.currentTarget.style.color = T.onVariant}>VOLVER AL UNIVERSO</button>
             </div>
@@ -773,26 +800,26 @@ export default function Reader({ entry, color, onClose }) {
 
           {/* ── Título de la sección actual ── */}
           {cur.title && (
-            <div style={{ maxWidth: 900, margin: '0 auto 36px', animation: 'h-slideup .35s ease both' }}>
+            <div style={{ maxWidth: 900, margin: isMobile ? '0 auto 24px' : '0 auto 36px', animation: 'h-slideup .35s ease both' }}>
               <div style={{ fontFamily: T.ff.mono, fontSize: 9, color: `${color}60`, letterSpacing: '.22em', textTransform: 'uppercase', marginBottom: 10 }}>
                 {total > 1 ? `${page + 1} / ${total}` : ''}
               </div>
-              <h2 style={{ fontFamily: T.ff.display, fontSize: 'clamp(1.4rem,2.5vw,1.8rem)', fontWeight: 700, color, lineHeight: 1.15, marginBottom: 22, textShadow: `0 0 40px ${color}30`, letterSpacing: '-.01em' }}>
+              <h2 style={{ fontFamily: T.ff.display, fontSize: isMobile ? 'clamp(1.2rem,5vw,1.5rem)' : 'clamp(1.4rem,2.5vw,1.8rem)', fontWeight: 700, color, lineHeight: 1.15, marginBottom: isMobile ? 16 : 22, textShadow: `0 0 40px ${color}30`, letterSpacing: '-.01em' }}>
                 {cur.title}
               </h2>
-              <div style={{ width: 36, height: 2, borderRadius: 1, background: `linear-gradient(to right,${color}80,transparent)`, marginBottom: 36 }} />
+              <div style={{ width: 36, height: 2, borderRadius: 1, background: `linear-gradient(to right,${color}80,transparent)`, marginBottom: isMobile ? 24 : 36 }} />
             </div>
           )}
 
           {/* ── Contenido de la sección ── */}
           <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-            {renderSection(cur.content, color)}
+            {renderSection(cur.content, color, isMobile)}
           </div>
 
-          {total > 1 && <div style={{ height: 100 }} />}
+          {total > 1 && <div style={{ height: isMobile ? 70 : 100 }} />}
         </div>
       </div>
-      <PageNav current={page} total={total} sections={sections} color={color} onPrev={goPrev} onNext={goNext} onJump={goTo} />
+      <PageNav current={page} total={total} sections={sections} color={color} onPrev={goPrev} onNext={goNext} onJump={goTo} isMobile={isMobile} />
     </>
   )
 }
