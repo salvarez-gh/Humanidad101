@@ -2,7 +2,7 @@
 //  Reader.jsx — Lector de entradas del universo Humanidad 101
 //  Recibe: entry (objeto Firebase), color (hex del cuadrante), onClose (fn)
 //
-//  MARCADORES DE BLOQUE (guía completa al final del archivo):
+//  MARCADORES DE BLOQUE
 //
 //  MARCADOR         TIPO               EJEMPLO
 //  ---              separator          ---
@@ -75,6 +75,7 @@ const T = {
 // Lista de prefijos que siempre deben ser su propio bloque
 const BLOCK_PREFIXES = [
   '---',    // separator
+  '°Page°', // salto de página (crea nueva sección, sin título)
   '## ',    // section-title
   '### ',   // subheading
   '>PIA',   // pia-start
@@ -89,7 +90,16 @@ const BLOCK_PREFIXES = [
 ]
 
 function preprocessContent(content) {
-  const lines = content.split('\n')
+  // 1) Normaliza finales de línea. Si el .txt viene de Windows (CRLF, \r\n) o
+  //    tiene \r sueltos, una "línea vacía" queda como \r\n\r\n, que NO contiene
+  //    el string exacto "\n\n" — por eso split('\n\n') nunca separaba los bloques.
+  // 2) De paso, limpia líneas que solo tienen espacios/tabs/nbsp invisibles
+  //    (residuo típico de pegar texto desde Word/Docs/Notion).
+  const cleaned = content
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/^[ \t\u00A0\u200B\uFEFF]+$/gm, '')
+  const lines   = cleaned.split('\n')
   const out   = []
 
   for (let i = 0; i < lines.length; i++) {
@@ -207,9 +217,6 @@ function renderLines(text) {
   ))
 }
 
-
-
-
 // ══════════════════════════════════════════════════════════════════
 //  DIVISIÓN EN PÁGINAS
 //  "## Título" parte el contenido en páginas navegables con ← →
@@ -224,14 +231,24 @@ function splitIntoSections(content) {
   let currentLines = []
 
   for (const line of lines) {
-    if (line.trimStart().startsWith('## ') && !line.trimStart().startsWith('### ')) {
+    const trimmed = line.trim()
+
+    // °Page° crea una sección (página) nueva. No toca el título.
+    if (trimmed === '°Page°') {
       if (currentLines.join('').trim())
         sections.push({ title: currentTitle, content: currentLines.join('\n').trim() })
-      currentTitle = line.replace(/^##\s*/, '').trim()
+      currentTitle = null
       currentLines = []
-    } else {
-      currentLines.push(line)
+      continue
     }
+
+    // "## Texto" solo asigna el título de la sección actual, ya no la parte.
+    if (line.trimStart().startsWith('## ') && !line.trimStart().startsWith('### ')) {
+      currentTitle = line.replace(/^##\s*/, '').trim()
+      continue
+    }
+
+    currentLines.push(line)
   }
 
   if (currentLines.join('').trim())
@@ -362,9 +379,15 @@ function BlockSubheading({ text, color, isMobile }) {
 function BlockSignature({ color }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '40px 0 32px' }}>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to right,transparent,${color}30)` }} />
-      <span style={{ fontFamily: T.ff.mono, fontSize: 15, color: `${color}80`, letterSpacing: '.25em', textTransform: 'uppercase' }}>Alus Anahori</span>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to left,transparent,${color}30)` }} />
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(to right,transparent,${color}50)` }} />
+      <span style={{ 
+        fontFamily: T.ff.mono, 
+        fontSize: 15, 
+        color: `${color}100`, 
+        letterSpacing: '.25em', 
+        textTransform: 'uppercase' 
+        }}>Alus Anahori</span>
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(to left,transparent,${color}50)` }} />
     </div>
   )
 }
@@ -531,7 +554,7 @@ function renderSection(sectionContent, color, isMobile) {
   return blocks.map((block, i) => {
     const type = detectBlockType(block)
     switch (type) {
-      case 'separator':    return <BlockSeparator  key={i} color={color} />
+      case 'separator':    return <BlockSeparator   key={i} color={color} />
       case 'log':          return <BlockLog         key={i} text={block} color={color} isMobile={isMobile} />
       case 'quote':        return <BlockQuote       key={i} text={block} color={color} isMobile={isMobile} />
       case 'data':         return <BlockData        key={i} text={block} isMobile={isMobile} />
@@ -596,8 +619,14 @@ function NavButton({ onClick, disabled, color, label, primary, isMobile }) {
   )
 }
 
-function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMobile }) {
+function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMobile, entryTitle, }) {
+  const [isOpen, setIsOpen] = useState(false)
+
   if (total <= 1) return null
+
+  // Determinar si es el documento "La exploración espacial"
+  const isExploracionEspacial = entryTitle === "La Exploración Espacial"
+
   return (
     <>
       {/* ── BOTÓN ANTERIOR ───────────────────────────────────────────────
@@ -607,9 +636,9 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMo
           En móvil usa solo "←" para no invadir el ancho de la pantalla. */}
       <div style={{
         position: 'fixed',
-        left: isMobile ? 10 : 20,        // Pegado al borde izquierdo con margen mínimo
-        top: '50%',                      // Centro vertical de la pantalla
-        transform: 'translateY(-50%)',   // Ajuste exacto al centro (compensa la altura propia)
+        left: isMobile ? 10 : 20,
+        top: '50%',
+        transform: 'translateY(-50%)',
         zIndex: 350,
       }}>
         <NavButton onClick={onPrev} disabled={current === 0} color={color} label={isMobile ? '←' : '← ANTERIOR'} isMobile={isMobile} />
@@ -620,9 +649,9 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMo
           primary=true activa el estilo destacado (fondo de color).   */}
       <div style={{
         position: 'fixed',
-        right: isMobile ? 10 : 20,       // Pegado al borde derecho con margen mínimo
-        top: '50%',                      // Centro vertical de la pantalla
-        transform: 'translateY(-50%)',   // Ajuste exacto al centro
+        right: isMobile ? 10 : 20,
+        top: '50%',
+        transform: 'translateY(-50%)',
         zIndex: 350,
       }}>
         <NavButton onClick={onNext} disabled={current === total - 1} color={color} label={isMobile ? '→' : 'SIGUIENTE →'} primary isMobile={isMobile} />
@@ -637,59 +666,173 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMo
           del contenido por debajo), sin gradiente ni etiqueta de título. */}
       <div style={{
         position: 'fixed',
-        bottom: 0,                       // Pegada al fondo de la página
+        bottom: 0,
         left: 0,
         right: 0,
-        height: 25,                      // Grosor máximo solicitado
         zIndex: 350,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        padding: '0 60px',               // Espacio lateral para no chocar con los botones ← / →
-        background: 'rgba(5,5,5,0.96)',  // Opaco: evita que el texto se transparente por debajo
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        pointerEvents: 'none',           // El contenedor no captura clics, solo los botones internos
+        padding: isMobile ? '10px 16px 10px' : '12px 20px 12px',
+        background: 'rgba(5,5,5,0.96)',
+        borderTop: '2px solid rgba(255,255,255,0.06)',
+        pointerEvents: 'none',
       }}>
+        
         {/* Ventana deslizante de 3 índices: [actual-1, actual, actual+1],
             recortada en los bordes (primera y última página muestran solo 2). */}
-        {[current - 1, current, current + 1]
-          .filter(i => i >= 0 && i < total)
-          .map(i => {
-            const active = i === current
-            return (
-              <button
-                key={i}
-                onClick={() => onJump(i)}
-                title={sections[i]?.title || `Capítulo ${i + 1}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 8,             // Área táctil generosa aunque el punto sea pequeño
-                  pointerEvents: 'auto',  // Reactiva clics solo en cada botón
-                }}
-              >
-                {/* Indicador gráfico: barra corta si es el actual, punto si es prev/next */}
-                <div style={{
-                  width:        active ? 20 : 6,
-                  height:       6,
-                  borderRadius: active ? 3 : '50%',
-                  background:   active ? color : `${color}55`,
-                  boxShadow:    active ? `0 0 8px ${color}` : 'none',
-                  transition:   'all .2s ease',
-                }} />
-              </button>
-            )
-          })}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          flex: .9,
+          pointerEvents: 'none',
+        }}>
+          {[current - 1, current, current + 1]
+            .filter(i => i >= 0 && i < total)
+            .map(i => {
+              const active = i === current
+              return (
+                <button
+                  key={i}
+                  onClick={() => onJump(i)}
+                  title={sections[i]?.title || `Capítulo ${i + 1}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 8,
+                    pointerEvents: 'auto',
+                  }}
+                >
+                  <div style={{
+                    width:        active ? 20 : 7,
+                    height:       7,
+                    borderRadius: active ? 25 : '50%',
+                    background:   active ? color : `${color}75`,
+                    boxShadow:    active ? `0 0 8px ${color}80` : 'none',
+                    transition:   'all .2s ease',
+                  }} />
+                </button>
+              )
+            })}
+        </div>
+
+        {/* ── SELECTOR DE CAPÍTULOS (a la derecha de los puntos) ── */}
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          pointerEvents: 'auto',
+          flexDirection: 'row-reverse',      // selector a la izquierda del botón  
+        }}>
+          {/* Botón toggle */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            style={{
+              fontFamily: T.ff.mono,
+              fontSize: isMobile ? 8 : 10,
+              color: isOpen ? color : T.onVariant,
+              background: isOpen ? `${color}50` : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${isOpen ? color + '60' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 25,
+              padding: isMobile ? '4px 10px' : '6px 14px',
+              cursor: 'pointer',
+              letterSpacing: '.08em',
+              textTransform: 'uppercase',
+              transition: 'all .25s ease',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isOpen ? '✕' : '☰'}
+          </button>
+
+          {/* Selector (solo visible cuando isOpen es true) */}
+          {isOpen && (
+            <div style={{
+              position: 'absolute',
+              bottom: 'calc(100% + 8px)',     // Aparece hacia arriba
+              right: 0,
+              minWidth: 200,
+              maxHeight: 300,
+              overflowY: 'auto',
+              background: 'rgba(20,20,30,0.95)',
+              border: `2px solid ${color}60`,
+              borderRadius: 12,
+              padding: '8px 0',
+              boxShadow: `0 8px 32px rgba(0,0,0,0.6)`,
+              zIndex: 400,
+              backdropFilter: 'blur(12px)',
+            }}>
+
+              {/* Agrupar capítulos por título */}
+              {sections.reduce((acc, s, i) => {
+              // Detectar si es un título real o de Alus Anahori (si es el documento de Alus)
+              const isAlus = !s.title && isExploracionEspacial // Si no tiene título, es Alus Anahori
+              const title = s.title || (isExploracionEspacial ? `Alus Anahori` : `Página ${i + 1}`)
+              
+              // Si es Alus Anahori, siempre lo añadimos (no se agrupa)
+              if (isAlus) {
+                acc.push({ title, index: i })
+                return acc
+              }
+              
+              // Si es un título real, verificamos si ya existe en el acumulador
+              if (!acc.some(item => item.title === title)) {
+                acc.push({ title, index: i })
+              }
+                return acc
+              }, []).map(({ title, index }) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    onJump(index)
+                    setIsOpen(false)
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    fontFamily: T.ff.body,
+                    fontSize: isMobile ? 10 : 12,
+                    color: T.onSurface,
+                    background: index === current ? `${color}35` : 'transparent',
+                    border: 'none',
+                    padding: '8px 16px',        // ESPACIO ENTRE OPCIONES
+                    margin: '2px 0',             // ESPACIO ENTRE OPCIONES
+                    cursor: 'pointer',
+                    transition: 'background .2s',
+                    letterSpacing: '.01em',
+                    borderLeft: index === current ? `3px solid ${color}` : '3px solid transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = `${color}50`
+                    e.currentTarget.style.textShadow = `0 0 20px ${color}40`  // Brillo
+                  }}
+                  onMouseLeave={(e) => {
+                    if (index !== current) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = T.onSurface
+                      e.currentTarget.style.textShadow = 'none'
+                    }
+                  }}
+
+                >
+                  {index + 1}. {title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </>
   )
 }
-
 
 function CloseButton({ onClick, color, label, isMobile }) {
   const [hov, setHov] = useState(false)
@@ -700,12 +843,15 @@ function CloseButton({ onClick, color, label, isMobile }) {
         fontFamily: T.ff.mono, fontSize: isMobile ? 9 : 9.5,
         color: hov ? color : T.onVariant,
         background: 'transparent',
-        border: `1px solid ${hov ? color + '60' : T.outline}`,
-        borderRadius: 6, padding: isMobile ? '8px 14px' : '7px 18px',
-        cursor: 'pointer', letterSpacing: '.14em', textTransform: 'uppercase',
+        border: `2px solid ${hov ? color + '90' : T.outline}`,
+        borderRadius: 25, 
+        padding: isMobile ? '8px 14px' : '7px 18px',
+        cursor: 'pointer', 
+        letterSpacing: '.14em', 
+        textTransform: 'uppercase',
         marginBottom: isMobile ? 28 : 44, display: 'flex', alignItems: 'center', gap: 8,
         transition: 'all .2s ease',
-        minHeight: 36,   // Área táctil cómoda en móvil
+        minHeight: 30,   // Área táctil cómoda en móvil
       }}>
       {label}
     </button>
@@ -801,7 +947,14 @@ export default function Reader({ entry, color, onClose }) {
           {/* ── Título de la sección actual ── */}
           {cur.title && (
             <div style={{ maxWidth: 900, margin: isMobile ? '0 auto 24px' : '0 auto 36px', animation: 'h-slideup .35s ease both' }}>
-              <div style={{ fontFamily: T.ff.mono, fontSize: 9, color: `${color}60`, letterSpacing: '.22em', textTransform: 'uppercase', marginBottom: 10 }}>
+              <div style={{ 
+                fontFamily: T.ff.mono, 
+                fontSize: isMobile ? 10 : 13, 
+                color: `${color}100`, 
+                letterSpacing: '.15em', 
+                textTransform: 'uppercase', 
+                marginBottom: 10 
+                }}> 
                 {total > 1 ? `${page + 1} / ${total}` : ''}
               </div>
               <h2 style={{ fontFamily: T.ff.display, fontSize: isMobile ? 'clamp(1.2rem,5vw,1.5rem)' : 'clamp(1.4rem,2.5vw,1.8rem)', fontWeight: 700, color, lineHeight: 1.15, marginBottom: isMobile ? 16 : 22, textShadow: `0 0 40px ${color}30`, letterSpacing: '-.01em' }}>
@@ -819,7 +972,7 @@ export default function Reader({ entry, color, onClose }) {
           {total > 1 && <div style={{ height: isMobile ? 70 : 100 }} />}
         </div>
       </div>
-      <PageNav current={page} total={total} sections={sections} color={color} onPrev={goPrev} onNext={goNext} onJump={goTo} isMobile={isMobile} />
+      <PageNav current={page} total={total} sections={sections} color={color} onPrev={goPrev} onNext={goNext} onJump={goTo} isMobile={isMobile} entryTitle={entry.title} />
     </>
   )
 }

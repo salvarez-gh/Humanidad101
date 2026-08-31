@@ -629,7 +629,8 @@ function Node({ entry, color, index, onClick, isMobile }) {
         }}>
           {/* Era de la entrada: etiqueta monoespaciada pequeña */}
           <div style={{
-            fontFamily: T.ff.mono, fontSize: 8,
+            fontFamily: T.ff.mono, 
+            fontSize: 8,
             color,                               // Color del cuadrante
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
