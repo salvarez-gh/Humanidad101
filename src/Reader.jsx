@@ -937,8 +937,27 @@ export default function Reader({ entry, color, onClose }) {
 
           {/* ── Páginas > 0: cabecera compacta ── */}
           {page > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, maxWidth: 820, margin: isMobile ? '0 auto 28px' : '0 auto 44px' }}>
-              <button onClick={onClose} style={{ fontFamily: T.ff.mono, fontSize: isMobile ? 10 : 11, color: T.onVariant, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color .2s', flexShrink: 0, minHeight: isMobile ? 36 : 'auto' }}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 14, 
+              maxWidth: 820, 
+              margin: isMobile ? '0 auto 28px' : '0 auto 44px' 
+              }}>
+
+              <button 
+                onClick={onClose} 
+                style={{ 
+                  fontFamily: T.ff.mono, 
+                  fontSize: isMobile ? 10 : 11, 
+                  color: T.onVariant, 
+                  background: 'transparent', 
+                  border: 'none', 
+                  cursor: 'pointer', 
+                  transition: 'color .2s', 
+                  flexShrink: 0, 
+                  minHeight: isMobile ? 36 : 'auto' 
+                }}
                 onMouseEnter={e => e.currentTarget.style.color = color}
                 onMouseLeave={e => e.currentTarget.style.color = T.onVariant}>VOLVER AL UNIVERSO</button>
             </div>
@@ -946,7 +965,12 @@ export default function Reader({ entry, color, onClose }) {
 
           {/* ── Título de la sección actual ── */}
           {cur.title && (
-            <div style={{ maxWidth: 900, margin: isMobile ? '0 auto 24px' : '0 auto 36px', animation: 'h-slideup .35s ease both' }}>
+            <div style={{ 
+              maxWidth: 900, 
+              margin: isMobile ? '0 auto 24px' : '0 auto 36px', 
+              animation: 'h-slideup .35s ease both' 
+              }}>
+                
               <div style={{ 
                 fontFamily: T.ff.mono, 
                 fontSize: isMobile ? 10 : 13, 

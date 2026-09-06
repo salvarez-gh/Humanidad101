@@ -10,6 +10,7 @@ import { db } from './firebase'                              // Conexión a Fire
 import { collection, getDocs } from 'firebase/firestore'    // API de lectura de Firebase
 import Reader from './Reader'                                // Lector que se abre al clicar un nodo
 
+
 // ══════════════════════════════════════════════════════════════════
 //  HOOK: useMediaQuery
 //  Detecta si un media query CSS coincide, y se actualiza en vivo
@@ -186,7 +187,7 @@ const QM = {
       // ── Partículas en órbita alrededor del centro ─────────────
       // 220 partículas orbitando con radio y ángulo variable en el tiempo
       for (let i = 0; i < 220; i++) {
-        const ang = (i / 220) * Math.PI * 2 + Math.sin(t * .00025 + i * .4) * .5  // Ángulo base + oscilación
+        const ang = (i / 220) * Math.PI * 2 + Math.sin(t * .001 + i * .4) * .5  // Ángulo base + oscilación
         const orbitR = 30 + Math.pow(i % 11, 1.6) * 8 + Math.sin(t * .0004 + i) * .20  // Radio variable
         const x = w * .5 + Math.cos(ang) * orbitR           // Coordenada X en la órbita
         const y = h * .5 + Math.sin(ang) * orbitR * .5      // Coordenada Y aplanada (elipse, no círculo)
@@ -408,7 +409,6 @@ const QM = {
         { rx: 72,  opacity: .5,  width: 1.2 },
         { rx: 118, opacity: .7,  width: .8  },
         { rx: 168, opacity: .8,  width: .7  },
-        { rx: 225, opacity: .9, width: .5  },
       ]
       rings.forEach(({ rx, opacity, width }, ring) => {
         const ry    = rx * .36
@@ -571,7 +571,7 @@ function Node({ entry, color, index, onClick, isMobile }) {
   // El valor negativo mueve hacia arriba.
   // En móvil la tarjeta es más compacta, por lo que el offset es menos negativo
   // para mantener el dot centrado con la línea de tiempo.
-  const yOffset = isMobile ? -125 : -200   // px hacia arriba desde el centro de la línea
+  const yOffset = isMobile ? -125 : -205   // px hacia arriba desde el centro de la línea
 
   return (
     <div
@@ -672,6 +672,7 @@ function Node({ entry, color, index, onClick, isMobile }) {
           </div>
         </div>
       ) : (
+        
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         //  VERSIÓN ESCRITORIO — Completa
         //  - Incluye resumen (3 líneas)
@@ -1128,7 +1129,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
         fontFamily: T.ff.display,
         fontSize: isMobile ? 'clamp(4rem,22vw,7rem)' : 'clamp(8rem,18vw,16rem)',
         fontWeight: 800, lineHeight: 1,
-        color: isMobile ? `${color}02` : `${color}03`,  // Aún más invisible en móvil
+        color: isMobile ? `${color}03` : `${color}05`,  // Aún más invisible en móvil
         userSelect: 'none', pointerEvents: 'none',      // No interactivo
         zIndex: 1,
         letterSpacing: '-.04em',
@@ -1141,7 +1142,8 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
           La línea central está en top:50% de este contenedor.
           Los nodos se posicionan relativos a este div. */}
       <div style={{
-        position: 'absolute', left: 0, right: 0, top: '50%',
+        position: 'absolute', left: 0, 
+        right: 0, top: '50%',
         height: 320,                    // Alto del área de la línea de tiempo
         transform: 'translateY(-50%)', // Centra verticalmente en la pantalla
         zIndex: 8,
@@ -1150,7 +1152,8 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
         {/* Línea central horizontal — más compacta en móvil (menos margen lateral) */}
         <div style={{
           position: 'absolute',
-          left: isMobile ? '8%' : '12%', right: isMobile ? '8%' : '15%',
+          left: isMobile ? '8%' : '12%', 
+          right: isMobile ? '8%' : '15%',
           top: '50%',                  // Centrada verticalmente en el track
           height: 10,                  // Altura visual de la línea (gruesa, degradada)
           transform: 'translateY(-50%)',
@@ -1161,7 +1164,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
         {/* Etiqueta izquierda: inicio del cuadrante */}
         <div style={{
           position: 'absolute', left: '6%', top: '50%',
-          transform: 'translateY(-50%)',
+          transform: 'translateY(-120%)',
           fontFamily: T.ff.mono, fontSize: 11,
           color: `${color}80`,           // Color del cuadrante al 50%
           letterSpacing: '.14em', fontWeight: 500,
@@ -1170,14 +1173,14 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
           zIndex: 5,
           whiteSpace: 'nowrap',          // No permite salto de línea
         }}>
-          {quadrant.startBillion === 0 ? 'BIG BANG' : `${quadrant.startBillion}B AÑOS`}
+          {quadrant.startBillion === 0 ? 'Año 0' : `${quadrant.startBillion} B AÑOS`}
           {/* Si empieza en 0, muestra "BIG BANG"; si no, muestra "Xb AÑOS" */}
         </div>
 
         {/* Etiqueta derecha: fin del cuadrante */}
         <div style={{
           position: 'absolute', right: '8%', top: '50%',
-          transform: 'translateY(-50%)',
+          transform: 'translateY(-120%)',
           fontFamily: T.ff.mono, fontSize: 11,
           color: `${color}80`,
           letterSpacing: '.14em', fontWeight: 500,
@@ -1186,7 +1189,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
           zIndex: 5,
           whiteSpace: 'nowrap',
         }}>
-          {quadrant.endBillion}B AÑOS
+          {quadrant.endBillion} B AÑOS
         </div>
 
         {/* Marcas de tick a lo largo de la línea (20%, 40%, 60%, 80%) */}
@@ -1197,7 +1200,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
             top: '50%',
             transform: 'translate(-50%,-50%)',
             width: 0.25, height: 8,      // Línea muy delgada y corta
-            background: `${color}25`,    // Muy tenue: solo como referencia visual
+            background: `${color}35`,    // Muy tenue: solo como referencia visual
             pointerEvents: 'none',
           }} />
         ))}
@@ -1238,7 +1241,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
 //  y monta el Reader cuando se selecciona una entrada.
 // ══════════════════════════════════════════════════════════════════
 
-export default function Timeline() {
+export default function Timeline({ onExit }) {
   const [quadrants,     setQuadrants]     = useState([])    // Lista de cuadrantes de Firebase
   const [entries,       setEntries]       = useState([])    // Lista de entradas de Firebase
   const [loaded,        setLoaded]        = useState(false) // ¿Terminó la carga?
@@ -1359,44 +1362,63 @@ export default function Timeline() {
         />
       ))}
 
-      {/* Header fijo con logo y estadísticas */}
+      {/* Header fijo con logo y botón de salida */}
       <header style={{
         position: 'fixed', top: 0, left: 0, right: 0,
         zIndex: 50,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: isMobile ? '12px 20px' : '18px 52px',
         background: 'linear-gradient(to bottom,rgba(5,5,5,0.85) 0%,transparent 100%)',
-        // Degradado: opaco arriba, transparente abajo (no tapa el contenido)
-        pointerEvents: 'none',   // El header no captura clics (el logo sí, con pointerEvents:auto)
+        pointerEvents: 'none',
       }}>
 
-        {/* Logo / nombre de la app */}
+        {/* ── Logo ── */}
         <div style={{
           fontFamily: T.ff.display,
           fontSize: isMobile ? 13 : 17,
           fontWeight: 800,
-          color: meta.color,                              // Cambia de color según el cuadrante
-          textShadow: `0 0 30px ${meta.color}50`,        // Halo del color del cuadrante
+          color: meta.color,
+          textShadow: `0 0 30px ${meta.color}50`,
           letterSpacing: '.04em',
-          pointerEvents: 'auto',                          // Este elemento sí captura clics
+          pointerEvents: 'auto',
         }}>
           Humanidad <span style={{ color: '#fff' }}>101</span>
-          {/* "Humanidad" en el color del cuadrante, "101" siempre blanco */}
         </div>
 
-{/* Comentado porque no se ven más que solo 1 escrito de momento */}
-{/* Info secundaria: cantidad de escritos + instrucción de navegación 
-<div style={{
-  fontFamily: T.ff.mono, fontSize: 9.5,
-  color: T.onVariant,
-  letterSpacing: '.2em', textTransform: 'uppercase',
-  display: 'flex', gap: 20,
-}}>
-  <span>{entries.length} ESCRITOS</span>
-  <span style={{ color: T.outline }}>·</span>
-  <span>← → NAVEGAR</span>
-</div> */} 
-       
+        {/* ── Botón para volver al Landing ── */}
+        <button
+          onClick={onExit} //Se cambia el estado a False para ver el landing
+          style={{
+            fontFamily: T.ff.mono,
+            fontSize: isMobile ? 9 : 10,
+            color: meta.color,
+            background: 'transparent',
+            border: `1px solid ${meta.color}30`,
+            borderRadius: 6,
+            padding: isMobile ? '4px 12px' : '6px 16px',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            transition: 'all .25s ease',
+            letterSpacing: '.08em',
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = `${meta.color}15`
+            e.currentTarget.style.borderColor = meta.color
+            e.currentTarget.style.boxShadow = `0 0 20px ${meta.color}30`
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.borderColor = `${meta.color}30`
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <span style={{ fontSize: isMobile ? 12 : 14 }}>✕</span>
+          {!isMobile && 'Salir del universo'}
+        </button>
       </header>
 
       {/* Botón flecha izquierda: solo si hay cuadrante anterior — oculto en móvil (se usa QuadrantNav) */}
