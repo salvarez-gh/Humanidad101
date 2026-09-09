@@ -87,6 +87,7 @@ const BLOCK_PREFIXES = [
   '@gif ',  // media gif
   '@audio ',// media audio
   '●', '•', '►',  // log bullets
+  'AZ: ', // Dialogo de Azul Zuri
 ]
 
 function preprocessContent(content) {
@@ -189,6 +190,9 @@ function detectBlockType(text) {
 
   // Dato clave:valor: texto corto sin especiales + ": valor"
   if (/^[A-ZÁÉÍÓÚa-záéíóú][^:●•—"*@><%]{2,30}:\s/.test(t)) return 'data'
+
+  // Diálogo de Azul Zuri
+  if (t.startsWith('AZ: ')) return 'dialogue-azul'  
 
   // Párrafo por defecto
   return 'paragraph'
@@ -339,6 +343,68 @@ function BlockData({ text, isMobile }) {
     </div>
   )
 }
+
+// ── DIÁLOGO DE AZUL ZURI (AZ: texto) ─────────────────────────────
+// Palabras de Azul Zuri, la entidad divina.
+// Estilo celestial: gradiente morado-blanco, resplandor sutil.
+// Responsive: se adapta a móvil con tamaños y padding reducidos.
+function BlockDialogueAzul({ text, isMobile }) {
+  const clean = text.replace(/^AZ:\s*/, '').trim()
+  
+  return (
+    <div style={{
+      position: 'relative',
+      fontFamily: T.ff.body,
+      fontSize: isMobile ? 14 : 16,
+      color: '#e8e0f0',
+      lineHeight: isMobile ? 1.7 : 1.85,
+      margin: isMobile ? '10px 0' : '12px 0',
+      padding: isMobile ? '12px 14px 12px 20px' : '14px 20px 14px 28px',
+      borderRadius: 8,
+      background: 'linear-gradient(135deg, rgba(120,80,200,0.12) 0%, rgba(200,180,255,0.05) 100%)',
+      border: '1px solid rgba(180,150,255,0.25)',
+      boxShadow: '0 0 30px rgba(160,120,255,0.08), inset 0 0 60px rgba(160,120,255,0.03)',
+      display: 'flex',
+      gap: isMobile ? 8 : 12,
+      alignItems: 'flex-start',
+    }}>
+      {/* ── Borde izquierdo: gradiente divino ── */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        top: isMobile ? 6 : 8,
+        bottom: isMobile ? 6 : 8,
+        width: isMobile ? 2 : 3,
+        borderRadius: 2,
+        background: 'linear-gradient(to bottom, rgba(200,180,255,0.8), rgba(160,120,255,0.4), rgba(200,180,255,0.8))',
+        boxShadow: '0 0 12px rgba(160,120,255,0.3)',
+      }} />
+
+      {/* ── Símbolo divino: ✦ (estrella) ── */}
+      <div style={{
+        flexShrink: 0,
+        marginTop: isMobile ? 1 : 2,
+        fontSize: isMobile ? 15 : 18,
+        color: 'rgba(200,180,255,0.6)',
+        textShadow: '0 0 20px rgba(160,120,255,0.3)',
+        fontFamily: T.ff.display,
+        lineHeight: 1,
+      }}>
+        ✦
+      </div>
+
+      {/* ── Contenido del diálogo ── */}
+      <div style={{
+        flex: 1,
+        color: '#e8e0f0',
+        textShadow: '0 0 30px rgba(160,120,255,0.1)',
+      }}>
+        {renderLines(clean)}
+      </div>
+    </div>
+  )
+}
+
 
 // ── PÁRRAFO NARRATIVO (texto sin marcador) ────────────────────────
 // Narrador omnisciente, descripciones de escena, contexto del mundo.
@@ -554,20 +620,21 @@ function renderSection(sectionContent, color, isMobile) {
   return blocks.map((block, i) => {
     const type = detectBlockType(block)
     switch (type) {
-      case 'separator':    return <BlockSeparator   key={i} color={color} />
-      case 'log':          return <BlockLog         key={i} text={block} color={color} isMobile={isMobile} />
-      case 'quote':        return <BlockQuote       key={i} text={block} color={color} isMobile={isMobile} />
-      case 'data':         return <BlockData        key={i} text={block} isMobile={isMobile} />
-      case 'subheading':   return <BlockSubheading  key={i} text={block} color={color} isMobile={isMobile} />
-      case 'signature':    return <BlockSignature   key={i} color={color} />
-      case 'thought':      return <BlockThought     key={i} text={block} isMobile={isMobile} />
-      case 'dialogue':     return <BlockDialogue    key={i} text={block} isMobile={isMobile} />
-      case 'dialogue-pia': return <BlockDialoguePia key={i} text={block} isMobile={isMobile} />
-      case 'pia-start':    return <BlockPiaStart    key={i} text={block} isMobile={isMobile} />
-      case 'pia-end':      return <BlockPiaEnd      key={i} isMobile={isMobile} />
+      case 'separator':     return <BlockSeparator   key={i} color={color} />
+      case 'log':           return <BlockLog         key={i} text={block} color={color} isMobile={isMobile} />
+      case 'quote':         return <BlockQuote       key={i} text={block} color={color} isMobile={isMobile} />
+      case 'data':          return <BlockData        key={i} text={block} isMobile={isMobile} />
+      case 'subheading':    return <BlockSubheading  key={i} text={block} color={color} isMobile={isMobile} />
+      case 'signature':     return <BlockSignature   key={i} color={color} />
+      case 'thought':       return <BlockThought     key={i} text={block} isMobile={isMobile} />
+      case 'dialogue':      return <BlockDialogue    key={i} text={block} isMobile={isMobile} />
+      case 'dialogue-pia':  return <BlockDialoguePia key={i} text={block} isMobile={isMobile} />
+      case 'dialogue-azul': return <BlockDialogueAzul key={i} text={block} isMobile={isMobile} />
+      case 'pia-start':     return <BlockPiaStart    key={i} text={block} isMobile={isMobile} />
+      case 'pia-end':       return <BlockPiaEnd      key={i} isMobile={isMobile} />
       case 'media-img':
       case 'media-gif':
-      case 'media-audio':  return <BlockMedia       key={i} text={block} type={type} isMobile={isMobile} />
+      case 'media-audio':   return <BlockMedia       key={i} text={block} type={type} isMobile={isMobile} />
       default: {
         const isFirst = pCount++ === 0
         return <BlockParagraph key={i} text={block} isFirst={isFirst} isMobile={isMobile} />
