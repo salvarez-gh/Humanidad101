@@ -7,13 +7,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "predeploy": "npm run build",        
-    "deploy": "gh-pages -d dist",        
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "firebase": "^12.15.0",
+    "posthog-js": "^1.430.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
