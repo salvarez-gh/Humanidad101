@@ -34,3 +34,9 @@ serviceAccountKey.json
 # Archivos temporales
 *.tmp
 *.temp
+
+# PostHog wizard
+.claude/
+
+# Vite cache
+.vite/

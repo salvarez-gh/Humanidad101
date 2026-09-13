@@ -8,8 +8,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { db } from './firebase'                              // Conexión a Firestore
 import { collection, getDocs } from 'firebase/firestore'    // API de lectura de Firebase
+import { captureEvent, captureException } from './analytics'
 import Reader from './Reader'                                // Lector que se abre al clicar un nodo
-
 
 // ══════════════════════════════════════════════════════════════════
 //  HOOK: useMediaQuery
@@ -1247,6 +1247,7 @@ export default function Timeline({ onExit }) {
   const [loaded,        setLoaded]        = useState(false) // ¿Terminó la carga?
   const [currentQ,      setCurrentQ]      = useState(0)     // Índice del cuadrante visible
   const [selectedEntry, setSelectedEntry] = useState(null)  // Entrada abierta en el Reader (null = cerrado)
+  const previousQuadrantRef = useRef(0)
 
   // Detección responsive: móvil (≤640px) y tablet (≤1023px)
   const isMobile = useMediaQuery('(max-width: 640px)')
@@ -1257,28 +1258,52 @@ export default function Timeline({ onExit }) {
   // Carga cuadrantes y entradas en paralelo con Promise.all.
   useEffect(() => {
   async function load() {
-    const [qSnap, eSnap] = await Promise.all([
-      getDocs(collection(db, 'quadrants')),
-      getDocs(collection(db, 'entries')),
-    ])
-    
-    // 1. Guardar todas las entradas primero
-    const allEntries = eSnap.docs.map(d => d.data())
-    setEntries(allEntries)
-    
-    // 2. Obtener todos los cuadrantes ordenados
-    const allQuadrants = qSnap.docs.map(d => d.data()).sort((a, b) => a.number - b.number)
-    
-    // 3. FILTRAR: solo cuadrantes que tienen al menos una entrada
-    const filteredQuadrants = allQuadrants.filter(q => 
-      allEntries.some(e => e.quadrantId === q.id)
-    )
-    
-    setQuadrants(filteredQuadrants)
-    setLoaded(true)
+    try {
+      const [qSnap, eSnap] = await Promise.all([
+        getDocs(collection(db, 'quadrants')),
+        getDocs(collection(db, 'entries')),
+      ])
+      
+      // 1. Guardar todas las entradas primero
+      const allEntries = eSnap.docs.map(d => d.data())
+      setEntries(allEntries)
+      
+      // 2. Obtener todos los cuadrantes ordenados
+      const allQuadrants = qSnap.docs.map(d => d.data()).sort((a, b) => a.number - b.number)
+      
+      // 3. FILTRAR: solo cuadrantes que tienen al menos una entrada
+      const filteredQuadrants = allQuadrants.filter(q => 
+        allEntries.some(e => e.quadrantId === q.id)
+      )
+      
+      setQuadrants(filteredQuadrants)
+      setLoaded(true)
+    } catch (error) {
+      captureException(error, { operation: 'load_timeline_data' })
+      console.error('Unable to load timeline data', error)
+    }
   }
   load()
   }, [])   // [] = solo al montar, no se repite
+
+  useEffect(() => {
+    if (!loaded || previousQuadrantRef.current === currentQ) return
+    const quadrant = quadrants[currentQ]
+    captureEvent('quadrant_changed', {
+      quadrant_id: quadrant?.id,
+      quadrant_number: quadrant?.number,
+    })
+    previousQuadrantRef.current = currentQ
+  }, [currentQ, loaded, quadrants])
+
+  const handleSelectEntry = entry => {
+    captureEvent('entry_opened', {
+      entry_id: entry.id,
+      entry_type: entry.type,
+      quadrant_id: entry.quadrantId,
+    })
+    setSelectedEntry(entry)
+  }
 
   // ── Navegación por teclado (← →) ──────────────────────────────
   // Solo activa cuando los datos están cargados Y no hay Reader abierto.
@@ -1357,7 +1382,7 @@ export default function Timeline({ onExit }) {
           quadrant={q}
           entries={entries}
           isActive={i === currentQ}      // Solo el cuadrante activo renderiza
-          onSelectEntry={setSelectedEntry}
+          onSelectEntry={handleSelectEntry}
           isMobile={isMobile}
         />
       ))}
@@ -1423,20 +1448,44 @@ export default function Timeline({ onExit }) {
 
       {/* Botón flecha izquierda: solo si hay cuadrante anterior — oculto en móvil (se usa QuadrantNav) */}
       {!isMobile && currentQ > 0 && (
-        <ArrowBtn dir="left" color={meta.color} onClick={() => setCurrentQ(q => q - 1)} />
+      <ArrowBtn dir="left" onClick={() => {
+        const next = currentQ - 1
+        captureEvent('quadrant_changed', {
+          quadrant_id:    quadrants[next]?.id,
+          quadrant_number: quadrants[next]?.number,
+          from_quadrant:  quadrants[currentQ]?.id,
+          method:         'arrow',
+        })
+        setCurrentQ(next)
+      }} />
       )}
 
       {/* Botón flecha derecha: solo si hay cuadrante siguiente — oculto en móvil */}
       {!isMobile && currentQ < quadrants.length - 1 && (
-        <ArrowBtn dir="right" color={meta.color} onClick={() => setCurrentQ(q => q + 1)} />
+      <ArrowBtn dir="right" onClick={() => {
+        const next = currentQ + 1
+        captureEvent('quadrant_changed', {
+          quadrant_id:    quadrants[next]?.id,
+          quadrant_number: quadrants[next]?.number,
+          from_quadrant:  quadrants[currentQ]?.id,
+          method:         'arrow',
+        })
+        setCurrentQ(next)
+      }} />   
       )}
 
       {/* Barra de navegación inferior */}
       <QuadrantNav
         quadrants={quadrants}
         current={currentQ}
-        onChange={setCurrentQ}
-        isMobile={isMobile}
+        onChange={(i) => {
+          captureEvent('quadrant_changed', {
+            quadrant_id:    quadrants[i]?.id,
+            quadrant_number: quadrants[i]?.number,
+            from_quadrant:  quadrants[currentQ]?.id,
+          })
+          setCurrentQ(i)
+}}        isMobile={isMobile}
       />
 
       {/* Reader: se monta cuando hay una entrada seleccionada */}

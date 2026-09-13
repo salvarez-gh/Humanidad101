@@ -24,6 +24,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { captureEvent } from './analytics'
 
 // ══════════════════════════════════════════════════════════════════
 //  HOOK: useMediaQuery
@@ -936,22 +937,57 @@ export default function Reader({ entry, color, onClose }) {
   const total                 = sections.length
   const [page, setPage]       = useState(0)
   const scrollRef             = useRef(null)
+  const previousPageRef       = useRef(0)
   const [entering, setEntering] = useState(true)
   const isMobile               = useMediaQuery('(max-width: 640px)')
+  //Constante para evento de cierre
+  const handleClose = useCallback(() => {
+  captureEvent('reader_closed', {
+    entry_id:    entry.id,
+    entry_title: entry.title,
+    entry_type:  entry.type,
+    quadrant_id: entry.quadrantId,
+    last_page:   page + 1,
+    total_pages: total,
+    completed:   page === total - 1,   // true si llegó a la última página
+  })
+  onClose()
+}, [page, total, entry.id, entry.title, entry.type, entry.quadrantId, onClose])
 
-  useEffect(() => { const t = setTimeout(() => setEntering(false), 400); return () => clearTimeout(t) }, [])
+  //Se dispara al abrir el reader
+  useEffect(() => {
+  captureEvent('reader_opened', {
+    entry_id:    entry.id,
+    entry_title: entry.title,
+    entry_type:  entry.type,
+    quadrant_id: entry.quadrantId,
+    total_pages: total,
+  })
+}, [])
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }, [page])
 
   useEffect(() => {
+    if (previousPageRef.current === page) return
+    captureEvent('reader_page_changed', {
+      entry_id: entry.id,
+      entry_type: entry.type,
+      quadrant_id: entry.quadrantId,
+      page_number: page + 1,
+      total_pages: total,
+    })
+    previousPageRef.current = page
+  }, [entry.id, entry.quadrantId, entry.type, page, total])
+
+  useEffect(() => {
     const onKey = e => {
-      if (e.key === 'Escape')     onClose()
+      if (e.key === 'Escape')     handleClose()
       if (e.key === 'ArrowRight') setPage(p => Math.min(p + 1, total - 1))
       if (e.key === 'ArrowLeft')  setPage(p => Math.max(p - 1, 0))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, total])
+  }, [handleClose, total])
 
   const goNext = useCallback(() => setPage(p => Math.min(p + 1, total - 1)), [total])
   const goPrev = useCallback(() => setPage(p => Math.max(p - 1, 0)), [])
@@ -977,7 +1013,7 @@ export default function Reader({ entry, color, onClose }) {
           {/* ── Página 0: cabecera completa ── */}
           {page === 0 && (
             <>
-              <CloseButton onClick={onClose} color={color} label="← VOLVER AL UNIVERSO" isMobile={isMobile} />
+              <CloseButton onClick={handleClose} color={color} label="← VOLVER AL UNIVERSO" isMobile={isMobile} />
               <div style={{ maxWidth: 820, margin: isMobile ? '0 auto 32px' : '0 auto 52px' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 8 : 15, marginBottom: 16, fontFamily: T.ff.mono, fontSize: isMobile ? 9 : 10, color, letterSpacing: '.2em', textTransform: 'uppercase' }}>
                   <div style={{ width: 20, height: 1, background: `linear-gradient(to right,${color},transparent)` }} />
@@ -1013,7 +1049,7 @@ export default function Reader({ entry, color, onClose }) {
               }}>
 
               <button 
-                onClick={onClose} 
+                onClick={handleClose} 
                 style={{ 
                   fontFamily: T.ff.mono, 
                   fontSize: isMobile ? 10 : 11, 
