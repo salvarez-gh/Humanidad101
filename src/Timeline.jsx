@@ -10,6 +10,7 @@ import { db } from './firebase'                              // Conexión a Fire
 import { collection, getDocs } from 'firebase/firestore'    // API de lectura de Firebase
 import { captureEvent, captureException } from './analytics'
 import Reader from './Reader'                                // Lector que se abre al clicar un nodo
+import ErrorBoundary from './ErrorBoundary'                  // Evita que un fallo del lector deje la pantalla en blanco
 
 // ══════════════════════════════════════════════════════════════════
 //  HOOK: useMediaQuery
@@ -1241,6 +1242,33 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
 //  y monta el Reader cuando se selecciona una entrada.
 // ══════════════════════════════════════════════════════════════════
 
+// ── RESPALDO DEL LECTOR ───────────────────────────────────────────
+// Se muestra cuando el lector lanza un error de render, para que la
+// pantalla no quede en blanco y el lector pueda cerrarse.
+function ReaderFallback({ color, onClose, isMobile }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,4,10,0.96)', backdropFilter: 'blur(28px)' }} />
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? 24 : 40, maxWidth: 520 }}>
+        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: isMobile ? 15 : 17, color: '#e8e4e3', lineHeight: 1.7, marginBottom: 28 }}>
+          No fue posible mostrar esta entrada.
+        </p>
+        <button
+          onClick={onClose}
+          style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: isMobile ? 10 : 11,
+            color, background: 'transparent', border: `2px solid ${color}90`,
+            borderRadius: 25, padding: isMobile ? '10px 18px' : '10px 22px',
+            cursor: 'pointer', letterSpacing: '.14em', textTransform: 'uppercase',
+          }}
+        >
+          ← Volver al universo
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Timeline({ onExit }) {
   const [quadrants,     setQuadrants]     = useState([])    // Lista de cuadrantes de Firebase
   const [entries,       setEntries]       = useState([])    // Lista de entradas de Firebase
@@ -1488,13 +1516,21 @@ export default function Timeline({ onExit }) {
 }}        isMobile={isMobile}
       />
 
-      {/* Reader: se monta cuando hay una entrada seleccionada */}
+      {/* Reader: se monta cuando hay una entrada seleccionada.
+          El límite de error se reinicia por entrada (key) para que un fallo
+          en una no bloquee la apertura de las demás. */}
       {selectedEntry && (
-        <Reader
-          entry={selectedEntry}
-          color={meta.color}
-          onClose={() => setSelectedEntry(null)}   // Cierra el Reader y vuelve a la Timeline
-        />
+        <ErrorBoundary
+          key={selectedEntry.id}
+          name="reader"
+          fallback={<ReaderFallback color={meta.color} onClose={() => setSelectedEntry(null)} isMobile={isMobile} />}
+        >
+          <Reader
+            entry={selectedEntry}
+            color={meta.color}
+            onClose={() => setSelectedEntry(null)}   // Cierra el Reader y vuelve a la Timeline
+          />
+        </ErrorBoundary>
       )}
     </div>
   )
