@@ -232,62 +232,254 @@ const QM = {
     name:      'La Era Humana',
 
     paint: (ctx, w, h, t) => {
-      ctx.clearRect(0, 0, w, h)   // Limpia el frame anterior
-
-      // ── Fondo: espacio frío con gradiente radial ───────────────
-      const bg = ctx.createRadialGradient(w * .25, h * .35, 0, w * .5, h * .5, w * .9)
-      bg.addColorStop(0, 'rgba(0,14,30,1)')    // Centro: azul marino muy oscuro
-      bg.addColorStop(1, 'rgba(1,3,10,1)')     // Bordes: casi negro
+      ctx.clearRect(0, 0, w, h)
+ 
+      // ─────────────────────────────────────────────────────────
+      //  DISEÑO: Zuri — año 1373 del exilio.
+      //  Su cuerpo es un cilindro negro (monolito) que sale del
+      //  sistema solar. Lleva 68 años fuera de la órbita plutoniana.
+      //  Adentro: su consciencia, el ADN de toda la vida terrestre.
+      //  Afuera: silencio absoluto y estrellas.
+      //
+      //  CAPAS (fondo → frente):
+      //  1. Fondo negro profundo
+      //  2. Campo estelar con aberración cromática por velocidad
+      //  3. El sol quedando atrás (izquierda), punto dorado
+      //  4. Polvo interestelar muy sutil — el vacío no es vacío
+      //  5. El monolito de Zuri — cilindro oscuro, núcleo interior
+      //  6. Bioluminiscencia interna — su sistema nervioso vivo
+      //  7. Estela mínima — rastro de calor residual
+      // ─────────────────────────────────────────────────────────
+ 
+ 
+      // ── 1. FONDO: negro interestelar profundo ─────────────────
+      // No hay gradiente — el espacio interestelar no tiene centro.
+      // Solo un azul noche casi imperceptible en los bordes.
+      const bg = ctx.createRadialGradient(w*.5, h*.5, 0, w*.5, h*.5, w)
+      bg.addColorStop(0, 'rgba(1,2,8,1)')    // Casi negro puro
+      bg.addColorStop(1, 'rgba(0,1,5,1)')    // Negro espacio en los bordes
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, w, h)
-
-      // ── Campo de estrellas denso ──────────────────────────────
-      // 500 estrellas con posiciones pseudo-aleatorias (deterministas por 'i')
-      for (let i = 0; i < 500; i++) {
-        const px = i * 173.7 % w    // X determinista: siempre la misma posición para cada 'i'
-        const py = i * 97.3 % h     // Y determinista
-        const a = .06 + .45 * Math.abs(Math.sin(i * .6 + t * .0005))   // Parpadeo suave
-        const r = .3 + (i % 5) * .28    // Radio varía entre 0.3 y 1.42px
+ 
+ 
+      // ── 2. CAMPO ESTELAR con aberración cromática sutil ───────
+      // Zuri viaja de izquierda a derecha (hacia el borde derecho).
+      // Aberración: estrellas delante (derecha) levemente más azules.
+      //             estrellas detrás (izquierda) levemente más rojas.
+      // El efecto es mínimo — apenas perceptible como textura de color.
+      for (let i = 0; i < 520; i++) {
+        const sx = (i * 173.7) % w
+        const sy = (i * 97.3)  % h
+ 
+        // Parpadeo muy lento, individual por estrella
+        const blink = Math.sin(t * .00014 * (0.5 + (i % 9) * .07) + i * .41)
+        const a = .05 + .35 * (blink * .5 + .5)
+ 
+        // Tamaño: 85% micro, 12% mediana, 3% grande
+        const sizeRoll = i % 33
+        const r = sizeRoll < 28 ? .22 + (i % 3) * .14
+                : sizeRoll < 32 ? .65 + (i % 3) * .2
+                :                 1.1 + (i % 2) * .25
+ 
+        // Aberración: posición X normalizada [0=izq, 1=der]
+        // xNorm > 0.5 = delante de Zuri → más azul (blueshift)
+        // xNorm < 0.5 = detrás de Zuri  → más rojo  (redshift)
+        const xNorm = sx / w
+        const shift = (xNorm - .5) * 28   // [-14, +14] en el canal de color
+ 
+        // Base: blanco-frío. Aberración ajusta rojo/azul sutilmente.
+        const sr = Math.max(0, Math.min(255, 190 + (i%30) - shift))
+        const sg = Math.max(0, Math.min(255, 200 + (i%20)))
+        const sb = Math.max(0, Math.min(255, 230 + (i%20) + shift))
+ 
         ctx.beginPath()
-        ctx.arc(px, py, r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${160 + i % 60},${210 + i % 40},255,${a})`   // Azul-blanco con variación
+        ctx.arc(sx, sy, r, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${sr},${sg},${sb},${a})`
         ctx.fill()
-      }
-
-      // ── Brazos de galaxia — 2 espirales ──────────────────────
-      for (let arm = 0; arm < 2; arm++) {
-        for (let j = 0; j < 150; j++) {
-          const p = j / 150                                      // Progreso a lo largo del brazo (0 a 1)
-          const ang = arm * Math.PI + p * Math.PI * 4 + t * .00008   // Ángulo espiral + rotación lenta
-          const dist = 15 + p * (w * .32)                       // Distancia al centro crece con p
-          const x = w * .65 + Math.cos(ang) * dist              // X: posición en la galaxia (derecha)
-          const y = h * .35 + Math.sin(ang) * dist * .42        // Y: aplanada para efecto de perspectiva
-          const a = (1 - p) * .22 * Math.abs(Math.sin(j * .15 + t * .0003))   // Más brillante al centro
+ 
+        // Halo tenue para estrellas grandes
+        if (sizeRoll === 32 && a > .25) {
           ctx.beginPath()
-          ctx.arc(x, y, 1.4, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(80,200,255,${a})`
+          ctx.arc(sx, sy, r * 3.2, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(${sr},${sg},${sb},${a * .05})`
           ctx.fill()
         }
       }
-
-      // ── Brillo del núcleo galáctico ───────────────────────────
-      const gc = ctx.createRadialGradient(w * .65, h * .35, 0, w * .65, h * .35, 100)
-      gc.addColorStop(0, 'rgba(60,180,255,0.08)')   // Halo cian suave
-      gc.addColorStop(1, 'rgba(0,0,0,0)')
-      ctx.fillStyle = gc
+ 
+ 
+      // ── 3. EL SOL QUEDANDO ATRÁS ──────────────────────────────
+      // Un punto dorado-blanco en la zona izquierda de la pantalla.
+      // Se desplaza muy lentamente hacia el borde izquierdo con el tiempo.
+      // En 1373 años de exilio, debería ser casi indistinguible de
+      // otras estrellas — solo levemente más cálido.
+      // El desplazamiento completo (de 22% a 6% del ancho) toma
+      // ~420,000 frames (~2hs de sesión) — nunca llega al borde.
+      const sunDrift  = (t * .000008) % .16         // Deriva acumulada: 0 → 0.16 del ancho
+      const sunX      = w * (.22 - sunDrift)         // Empieza al 22%, se va al 6%
+      const sunY      = h * .38                      // Posición vertical fija
+ 
+      // Halo difuso del sol — más grande, muy tenue
+      const sunHalo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 28)
+      sunHalo.addColorStop(0, 'rgba(255,230,140,0.07)')
+      sunHalo.addColorStop(.5, 'rgba(255,180,60,0.03)')
+      sunHalo.addColorStop(1,  'rgba(0,0,0,0)')
+      ctx.fillStyle = sunHalo
       ctx.fillRect(0, 0, w, h)
-
-      // ── Nebulosas dispersas ───────────────────────────────────
-      // 6 manchas de niebla distribuidas por la pantalla
-      for (let i = 0; i < 6; i++) {
-        const nx = w * (.08 + i * .16)       // X: distribuidas horizontalmente
-        const ny = h * (.2 + (i % 3) * .25) // Y: alternando 3 posiciones verticales
-        const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, 50 + i * 25)
-        ng.addColorStop(0, `rgba(0,120,220,${.012 + i * .003})`)   // Centro con alpha muy bajo
-        ng.addColorStop(1, 'rgba(0,0,0,0)')
-        ctx.fillStyle = ng
-        ctx.fillRect(0, 0, w, h)
+ 
+      // El punto del sol — brillante pero pequeño
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 4)
+      sunGlow.addColorStop(0, `rgba(255,245,200,${.7 + .1 * Math.sin(t * .0006)})`)
+      sunGlow.addColorStop(.4, 'rgba(255,200,80,0.4)')
+      sunGlow.addColorStop(1,  'rgba(0,0,0,0)')
+      ctx.fillStyle = sunGlow
+      ctx.fillRect(0, 0, w, h)
+ 
+ 
+      // ── 4. POLVO INTERESTELAR ─────────────────────────────────
+      // El vacío interestelar tiene ~1 átomo por cm³. No se ve,
+      // pero aquí lo representamos como puntos quasi-estáticos,
+      // casi transparentes, sin movimiento apreciable.
+      // Dan textura al fondo sin distraer.
+      for (let i = 0; i < 60; i++) {
+        const dx = (i * 317.4 + t * .003) % w    // Deriva casi nula
+        const dy = (i * 211.7)              % h
+        ctx.beginPath()
+        ctx.arc(dx, dy, .2, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(100,120,160,${.02 + .015 * Math.sin(i + t * .0002)})`
+        ctx.fill()
       }
+ 
+ 
+      // ── 5. EL MONOLITO DE ZURI ────────────────────────────────
+      // Cilindro negro, obsidiana. Viaja de izquierda a derecha.
+      // "Presente pero no dominante": ~8% del ancho, ~18% del alto.
+      // Posición: centro de pantalla ligeramente a la derecha.
+      // Se desplaza imperceptiblemente a lo largo de la sesión.
+ 
+      // Posición del centro del monolito
+      // Drift horizontal: en toda una sesión avanza ~3% del ancho
+      const monoDrift = (t * .000004) % .12
+      const mCX = w * (.68 + monoDrift)    // Centro X: empieza al 48%, avanza hacia derecha
+      const mCY = h * .50                   // Centro Y: mitad de pantalla
+ 
+      // Dimensiones del cilindro (perspectiva frontal = rectángulo + tapas elípticas)
+      const mW  = w * .045    // Semiancho del cuerpo = radio del cilindro
+      const mH  = h * .16     // Semialto del cuerpo
+      const mRY = mW * .32    // Radio Y de las elipses de tapa (aplana la perspectiva)
+ 
+      // Leve oscilación rotacional — el monolito no está perfectamente quieto
+      // como un navío en el mar, hay microtorques. Muy sutil.
+      const tilt = Math.sin(t * .00035) * .008   // ±0.008 rad ≈ ±0.45°
+ 
+      ctx.save()
+      ctx.translate(mCX, mCY)
+      ctx.rotate(tilt)
+ 
+      // ── Sombra de profundidad: gradiente lateral en el cuerpo ─
+      // El lado izquierdo recibe algo de luz del sol (que quedó atrás).
+      // El lado derecho está en sombra completa.
+      const bodyGrad = ctx.createLinearGradient(-mW, 0, mW, 0)
+      bodyGrad.addColorStop(0,  'rgba(18,14,22,1)')    // Izquierda: levísima luz solar residual
+      bodyGrad.addColorStop(.3, 'rgba(6,4,10,1)')      // Centro-izq: oscuro
+      bodyGrad.addColorStop(.7, 'rgba(3,2,6,1)')       // Centro-der: más oscuro
+      bodyGrad.addColorStop(1,  'rgba(1,1,3,1)')       // Derecha: sombra total
+ 
+      // Cuerpo del cilindro (rectángulo con las esquinas que tocan las elipses)
+      ctx.fillStyle = bodyGrad
+      ctx.fillRect(-mW, -mH, mW * 2, mH * 2)
+ 
+      // ── Tapa inferior (la que apunta hacia el sol — más iluminada) ─
+      const capBotGrad = ctx.createRadialGradient(0, mH, 0, 0, mH, mW)
+      capBotGrad.addColorStop(0,  'rgba(20,15,28,1)')
+      capBotGrad.addColorStop(.6, 'rgba(8,5,14,1)')
+      capBotGrad.addColorStop(1,  'rgba(2,1,4,1)')
+      ctx.fillStyle = capBotGrad
+      ctx.beginPath()
+      ctx.ellipse(0, mH, mW, mRY, 0, 0, Math.PI * 2)
+      ctx.fill()
+ 
+      // ── Tapa superior (apunta hacia la dirección de viaje) ────
+      const capTopGrad = ctx.createRadialGradient(0, -mH, 0, 0, -mH, mW)
+      capTopGrad.addColorStop(0,  'rgba(12,10,20,1)')
+      capTopGrad.addColorStop(1,  'rgba(1,1,3,1)')
+      ctx.fillStyle = capTopGrad
+      ctx.beginPath()
+      ctx.ellipse(0, -mH, mW, mRY, 0, 0, Math.PI * 2)
+      ctx.fill()
+ 
+      // ── Borde del cilindro: línea muy sutil para definir la forma
+      ctx.strokeStyle = 'rgba(40,30,60,0.5)'
+      ctx.lineWidth = .6
+      ctx.strokeRect(-mW, -mH, mW * 2, mH * 2)
+ 
+      // Borde de las tapas
+      ctx.strokeStyle = 'rgba(30,22,48,0.4)'
+      ctx.lineWidth = .5
+      ctx.beginPath()
+      ctx.ellipse(0, mH,  mW, mRY, 0, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.ellipse(0, -mH, mW, mRY, 0, 0, Math.PI * 2)
+      ctx.stroke()
+ 
+      // ── 6. BIOLUMINISCENCIA INTERIOR — el sistema nervioso ────
+      // Solo visible como una luz que filtra por la "piel" del cilindro.
+      // No es una ventana — es el calor de una consciencia viva adentro.
+      // Pulso muy lento: respira como un ser durmiendo.
+ 
+      const bioPhase = Math.sin(t * .00022)          // Ciclo respiratorio: ~28,000 frames
+      const bioA     = .06 + .025 * bioPhase          // [0.035, 0.085] — muy contenido
+ 
+      // Núcleo biológico: gradiente dentro del cuerpo
+      const bioGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, mW * .7)
+      bioGrad.addColorStop(0,  `rgba(60,180,240,${bioA})`)   // Centro: azul frío bioluminiscente
+      bioGrad.addColorStop(.5, `rgba(30,100,180,${bioA * .5})`)
+      bioGrad.addColorStop(1,  'rgba(0,0,0,0)')
+ 
+      // Se dibuja clippeado al cuerpo del cilindro
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(-mW, -mH, mW * 2, mH * 2)
+      ctx.clip()
+      ctx.fillStyle = bioGrad
+      ctx.fillRect(-mW, -mH, mW * 2, mH * 2)
+      ctx.restore()
+ 
+      // Filtraciones de luz por los bordes del cilindro
+      // Líneas muy tenues de bioluminiscencia que "filtran" por las juntas
+      for (let line = 0; line < 4; line++) {
+        const ly = -mH * .6 + line * mH * .4    // 4 líneas distribuidas verticalmente
+        const lineA = (.015 + .008 * Math.sin(t * .00018 + line * 1.3)) * (1 - Math.abs(ly / mH) * .5)
+        ctx.beginPath()
+        ctx.moveTo(-mW, ly)
+        ctx.lineTo(mW, ly)
+        ctx.strokeStyle = `rgba(80,200,255,${lineA})`
+        ctx.lineWidth = .6
+        ctx.stroke()
+      }
+ 
+      ctx.restore()   // Fin del save/translate/rotate del monolito
+ 
+ 
+      // ── 7. ESTELA RESIDUAL ────────────────────────────────────
+      // No hay propulsión activa — Zuri viaja por inercia.
+      // Pero hay calor residual de sistema de soporte vital:
+      // un gradiente muy tenue detrás del monolito.
+      const trailX  = mCX - mW * 1.5    // Justo detrás del borde izquierdo
+      const trailLen = w * .08           // Largo de la estela: 8% del ancho
+ 
+      const trail = ctx.createLinearGradient(trailX, mCY, trailX - trailLen, mCY)
+      trail.addColorStop(0,  'rgba(40,120,180,0.025)')   // Cerca del monolito: apenas visible
+      trail.addColorStop(.5, 'rgba(20,60,120,0.01)')
+      trail.addColorStop(1,  'rgba(0,0,0,0)')
+ 
+      ctx.save()
+      ctx.beginPath()
+      // La estela tiene el alto del cilindro (±mH) y la longitud definida arriba
+      ctx.rect(trailX - trailLen, mCY - mH * .8, trailLen, mH * 1.6)
+      ctx.fillStyle = trail
+      ctx.fill()
+      ctx.restore()
     }
   },
 
@@ -549,7 +741,7 @@ function Scanlines() {
 // El título de era está en top:80, right:100 → ocupa el lado derecho del header.
 // El riesgo de colisión es cuando el nodo está muy a la izquierda y alto.
 // Ajusta este valor si cambias la posición del bloque de identidad.
-const CARD_FLIP_THRESHOLD = 22  // % del ancho de pantalla
+const CARD_FLIP_THRESHOLD = 75  // % del ancho de pantalla
 
 function Node({ entry, color, index, onClick, isMobile }) {
   const [hovered, setHovered] = useState(false)

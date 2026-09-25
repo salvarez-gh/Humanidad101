@@ -4,23 +4,29 @@
 //
 //  MARCADORES DE BLOQUE
 //
-//  MARCADOR         TIPO               EJEMPLO
-//  ---              separator          ---
-//  ## Texto         section-title      ## El primer día
-//  ### Texto        subheading         ### Nota del archivo
-//  Alus Anahori     signature          Alus Anahori
-//  >PIA Título      pia-start          >PIA Necromancia noble
-//  <PIA             pia-end            <PIA
-//  *texto*          thought            *Cincuenta veces sin propósito.*
+//  MARCADOR         TIPO               DESCRIPCIÓN
+//  ---              separator          Separador horizontal de secciones (Línea horizontal)
+//  ## Texto         title              ## Títulos 
+//  ### Texto        subheading         ### Subtítulos
+//  Alus Anahori     signature          Definir que lo escrito en la página es por Alus Anahori
+//  >PIA Título      pia-start          >PIA Inicio del bloque de PIA
+//  <PIA             pia-end            <PIA FIn del bloque de PIA
+//  *texto*          thought            *Pensamientos con el monologo interno.*
 //  :D texto         dialogue           :D Lo que dice en voz alta
-//  :P texto         dialogue-pia       :P Lo que dice en el recuerdo
+//  :PZ: texto       thought-pia       :P Monólog interno de Zuri en el recuerdo
+//
 //  @img descripción media-img          @img Fotografía del exilio
 //  @gif descripción media-gif          @gif Mandala de cambio de cuerpo
 //  @audio desc      media-audio        @audio Voz natural de Zuri
+//
 //  ● texto          log                ● Años de exilio: 808 D.E.
 //  Clave: valor     data               Coordenadas: X-445
-//  "texto           quote              "El tiempo es una deuda
+//  " o — texto      quote              Citas de un personaje
 //  texto normal     paragraph          Narrador, descripciones, prosa
+//
+//  AZ: texto        dialogue-azul      AZ: El tiempo no existe
+//  :PIA: texto       dialogue-pia-zuri  PIA: Ritmo cardíaco elevado
+//  Z: texto         dialogue-zuri-pia   Z: Silencio, PIA
 // ════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState, useCallback } from 'react'
@@ -83,12 +89,15 @@ const BLOCK_PREFIXES = [
   '<PIA',   // pia-end
   '*',      // thought
   ':D ',    // dialogue
-  ':P ',    // dialogue-pia
+  ':PZ: ',  // Thought of Zuri in PIA
   '@img ',  // media imagen
   '@gif ',  // media gif
   '@audio ',// media audio
   '●', '•', '►',  // log bullets
   'AZ: ', // Dialogo de Azul Zuri
+  ':PIA: ',   // Mensaje de PIA a Zuri
+  'Z: ',     // Mensaje de Zuri a PIA
+
 ]
 
 function preprocessContent(content) {
@@ -173,9 +182,9 @@ function detectBlockType(text) {
   // Debe empezar Y terminar con * para no confundirse con texto normal
   if (t.startsWith('*') && t.endsWith('*') && t.length > 2) return 'thought'
 
-  // Diálogo en archivo PIA: ":P texto"
+  // Pensamiento en archivo PIA: ":PZ: texto"
   // Va antes que :D para que :P no caiga en dialogue
-  if (t.startsWith(':P '))                                  return 'dialogue-pia'
+  if (t.startsWith(':PZ: '))                                  return 'thought-pia'
 
   // Diálogo hablado presente: ":D texto"
   if (t.startsWith(':D '))                                  return 'dialogue'
@@ -194,6 +203,13 @@ function detectBlockType(text) {
 
   // Diálogo de Azul Zuri
   if (t.startsWith('AZ: ')) return 'dialogue-azul'  
+
+  // Diálogo de Azul Zuri
+  if (t.startsWith('AZ: ')) return 'dialogue-azul'
+
+  // Mensajes internos entre Zuri y PIA
+  if (t.startsWith(':PIA: ')) return 'dialogue-pia-zuri'   // PIA → Zuri
+  if (t.startsWith('Z: '))   return 'dialogue-zuri-pia'   // Zuri → PIA
 
   // Párrafo por defecto
   return 'paragraph'
@@ -406,6 +422,135 @@ function BlockDialogueAzul({ text, isMobile }) {
   )
 }
 
+// ── MENSAJE DE PIA A ZURI (PIA: texto) ───────────────────────────
+// PIA es el asistente virtual integrado en la mente de Zuri.
+// Este bloque representa cuando PIA "habla" dentro del monólogo interno.
+// Estilo: terminal verde-cian, como una notificación mental.
+function BlockDialoguePiaToZuri({ text, isMobile }) {
+  const clean = text.replace(/^:PIA:\s*/, '').trim()
+
+  return (
+    <div style={{
+      position: 'relative',
+      fontFamily: T.ff.mono,
+      fontSize: isMobile ? 12 : 13,
+      color: '#a8f0d8',
+      lineHeight: isMobile ? 1.7 : 1.85,
+      margin: isMobile ? '8px 0' : '10px 0',
+      padding: isMobile ? '12px 14px' : '14px 18px',
+      borderRadius: 8,
+      background: 'linear-gradient(135deg, rgba(0,229,180,0.10) 0%, rgba(0,229,180,0.03) 100%)',
+      border: '1px solid rgba(0,229,180,0.28)',
+      boxShadow: '0 0 24px rgba(0,229,180,0.08), inset 0 0 40px rgba(0,229,180,0.03)',
+      display: 'flex',
+      gap: isMobile ? 8 : 12,
+      alignItems: 'flex-start',
+    }}>
+      {/* Borde izquierdo PIA */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        top: 6,
+        bottom: 6,
+        width: 2,
+        borderRadius: 2,
+        background: `linear-gradient(to bottom, ${T.pia}, ${T.pia}50)`,
+        boxShadow: `0 0 10px ${T.pia}60`,
+      }} />
+
+      {/* Indicador PIA: ▶ + etiqueta */}
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2,
+        marginTop: 1,
+      }}>
+        <span style={{ color: T.pia, fontSize: isMobile ? 9 : 10, letterSpacing: '.05em' }}>▶</span>
+        <span style={{
+          fontFamily: T.ff.mono,
+          fontSize: isMobile ? 6.5 : 7.5,
+          color: `${T.pia}90`,
+          letterSpacing: '.12em',
+          textTransform: 'uppercase',
+        }}>
+        </span>
+      </div>
+
+      {/* Contenido */}
+      <div style={{ flex: 1, color: '#a8f0d8' }}>
+        {renderLines(clean)}
+      </div>
+    </div>
+  )
+}
+
+
+// ── RESPUESTA DE ZURI A PIA (Z: texto) ────────────────────────────
+// Zuri responde a PIA dentro de su propio monólogo interno.
+// Más íntimo y apagado que el mensaje de PIA, pero mantiene
+// el contexto tecnológico con un toque violeta (el color de Zuri).
+function BlockDialogueZuriToPia({ text, isMobile }) {
+  const clean = text.replace(/^Z:\s*/, '').trim()
+
+  return (
+    <div style={{
+      position: 'relative',
+      fontFamily: T.ff.mono,
+      fontSize: isMobile ? 12 : 13,
+      color: '#d8ccff',
+      lineHeight: isMobile ? 1.7 : 1.85,
+      margin: isMobile ? '8px 0' : '10px 0',
+      padding: isMobile ? '12px 14px' : '14px 18px',
+      borderRadius: 8,
+      background: 'linear-gradient(135deg, rgba(200,184,255,0.10) 0%, rgba(200,184,255,0.03) 100%)',
+      border: '1px solid rgba(200,184,255,0.28)',
+      boxShadow: '0 0 24px rgba(200,184,255,0.08), inset 0 0 40px rgba(200,184,255,0.03)',
+      display: 'flex',
+      gap: isMobile ? 8 : 12,
+      alignItems: 'flex-start',
+    }}>
+      {/* Borde izquierdo PIA */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        top: 6,
+        bottom: 6,
+        width: 2,
+        borderRadius: 2,
+        background: `linear-gradient(to bottom, ${T.thought}, ${T.thought}50)`,  // ← T.thought en lugar de T.pia
+        boxShadow: `0 0 10px ${T.thought}60`,                                     // ← T.thought en lugar de T.pia
+      }} />
+
+      {/* Indicador Z: ▶ + etiqueta */}
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2,
+        marginTop: 1,
+      }}>
+        <span style={{ color: T.thought, fontSize: isMobile ? 10 : 12, lineHeight: 1 }}>▶</span>
+        <span style={{
+          fontFamily: T.ff.mono,
+          fontSize: isMobile ? 6.5 : 7.5,
+          color: `${T.thought}70`,
+          letterSpacing: '.12em',
+          textTransform: 'uppercase',
+        }}>
+        </span>
+      </div>
+
+      {/* Contenido */}
+      <div style={{ flex: 1, color: '#d8ccff' }}>
+        {renderLines(clean)}
+      </div>
+    </div>
+  )
+}
+
 
 // ── PÁRRAFO NARRATIVO (texto sin marcador) ────────────────────────
 // Narrador omnisciente, descripciones de escena, contexto del mundo.
@@ -462,27 +607,36 @@ function BlockSignature({ color }) {
 // ── PENSAMIENTO DE ZURI (*texto*) ─────────────────────────────────
 // Monólogo interno en el presente de la narración.
 // Asteriscos al inicio y al fin — no aparecen en pantalla.
-// Borde punteado izquierdo + símbolo ◈ + violeta claro.
 function BlockThought({ text, isMobile }) {
-  // Elimina el * de inicio y de fin
-  const clean = text.replace(/^\*\s*/, '').replace(/\s*\*$/, '')
+  const clean = text
+    .replace(/^\s*\*\s*/, '')   // quita el * inicial aunque tenga espacios antes
+    .replace(/\s*\*\s*$/, '')   // quita el * final aunque tenga \n o espacios después
+    .trim()                      // limpia cualquier residuo en los bordes
+
   return (
     <div style={{
       position: 'relative',
-      fontFamily: T.ff.body, fontSize: isMobile ? 13.5 : 15.5, fontStyle: 'italic',
-      color: T.thought,
-      background: 'rgba(200,184,255,0.04)',
-      borderRadius: 8,
-      padding: isMobile ? '14px 16px 14px 22px' : '16px 20px 16px 28px',
-      margin: isMobile ? '16px 0' : '20px 0', lineHeight: isMobile ? 1.75 : 1.95,
+      fontFamily: T.ff.body,
+      fontSize: isMobile ? 14 : 16,
+      fontStyle: 'italic',
+      color: '#e0d4ff',
+      lineHeight: isMobile ? 1.75 : 1.95,
+      margin: isMobile ? '14px 0' : '18px 0',
+      padding: isMobile ? '4px 0 4px 32px' : '4px 0 4px 44px',
+      textAlign: 'left',
     }}>
-      {/* Borde punteado izquierdo: lo punteado indica que es interno */}
-      <div style={{
-        position: 'absolute', left: 0, top: 8, bottom: 8, width: 2,
-        background: `repeating-linear-gradient(to bottom,${T.thought}60 0px,${T.thought}60 4px,transparent 4px,transparent 10px)`,
-      }} />
-      {/* Símbolo identificador del bloque */}
-      <div style={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: `${T.thought}80`, lineHeight: 1 }}>◈</div>
+      {/* Comilla angular gigante */}
+      <span style={{
+        position: 'absolute',
+        left: 0,
+        top: -6,
+        fontFamily: T.ff.display,
+        fontSize: isMobile ? 20 : 25,
+        lineHeight: 1,
+        color: `${T.thought}50`,
+        fontWeight: 800,
+        userSelect: 'none',
+      }}>«</span>
       {renderLines(clean)}
     </div>
   )
@@ -495,10 +649,15 @@ function BlockDialogue({ text, isMobile }) {
   const clean = text.replace(/^:D\s*/, '').trim()
   return (
     <div style={{
-      fontFamily: T.ff.body, fontSize: isMobile ? 14 : 16,
-      color: T.onSurface, lineHeight: isMobile ? 1.7 : 1.85,
-      margin: '4px 0', paddingLeft: isMobile ? 12 : 20,
-      display: 'flex', gap: 10, alignItems: 'flex-start',
+      fontFamily: T.ff.body, 
+      fontSize: isMobile ? 14 : 16,
+      color: T.thought,
+      lineHeight: isMobile ? 1.7 : 1.85,
+      margin: '4px 0', 
+      paddingLeft: isMobile ? 12 : 20,
+      display: 'flex', 
+      gap: 10, 
+      alignItems: 'flex-start',
     }}>
       <span style={{ color: 'rgba(232,228,227,0.3)', flexShrink: 0, fontWeight: 300, marginTop: 2, fontSize: 18 }}>—</span>
       <span>{renderLines(clean)}</span>
@@ -506,21 +665,71 @@ function BlockDialogue({ text, isMobile }) {
   )
 }
 
-// ── DIÁLOGO EN ARCHIVO PIA (:P texto) ────────────────────────────
-// Palabras dichas dentro de un recuerdo o grabación reproducida por el PIA.
-// Más apagado que el diálogo presente: pertenece al pasado registrado.
-function BlockDialoguePia({ text, isMobile }) {
-  const clean = text.replace(/^:P\s*/, '').trim()
+// ── PENSAMIENTO DE ZURI DENTRO DE PIA (:PZ: texto) ──────────────
+// Monólogo interno de Zuri mientras está dentro de un archivo PIA.
+// Se renderiza DENTRO del contenedor verde de PIA (mismo fondo, borde
+// y padding que BlockPiaContent), pero con el color violeta de Zuri
+// y la comilla « para diferenciarlo visualmente como pensamiento.
+// Soporta | como salto de línea interno.
+function BlockThoughtPia({ text, isMobile }) {
+  const clean = text
+    .replace(/^\s*:PZ:\s*/, '')
+    .replace(/\s*$/, '')
+    .trim()
+
   return (
+    // ── Contenedor con el estilo del bloque PIA ──
+    // Mismo fondo verde, borde izquierdo y padding que BlockPiaContent.
+    // Esto garantiza que el pensamiento NO rompa la continuidad visual
+    // del bloque verde: aparece DENTRO de él, no como un elemento aparte.
     <div style={{
-      fontFamily: T.ff.body, fontSize: isMobile ? 13 : 14.5,
-      color: 'rgba(232,228,227,0.65)',
-      lineHeight: isMobile ? 1.65 : 1.8, margin: '4px 0', paddingLeft: isMobile ? 16 : 28,
-      display: 'flex', gap: 10, alignItems: 'flex-start',
-      borderLeft: `1px solid ${T.pia}20`,
+      fontFamily: T.ff.mono,
+      fontSize: isMobile ? 11 : 12,
+      background: `linear-gradient(to right, rgba(0,229,180,0.06), transparent)`,
+      border: `1px solid rgba(0,229,180,0.12)`,
+      borderLeft: `2px solid rgba(0,229,180,0.5)`,
+      borderRadius: '0 8px 8px 0',
+      padding: isMobile ? '10px 14px' : '11px 18px',
+      marginBottom: 10,
+      lineHeight: 1.85,
+      letterSpacing: '.02em',
+      textAlign: 'left',
     }}>
-      <span style={{ color: `${T.pia}50`, flexShrink: 0, fontWeight: 300, marginTop: 2, fontSize: 16 }}>—</span>
-      <span>{renderLines(clean)}</span>
+      {/* ── Contenido del pensamiento ──
+          Ahora sí: el pensamiento va DENTRO de la caja verde.
+          La comilla « y el color violeta lo distinguen como
+          monólogo interno, pero el fondo/borde siguen siendo PIA. */}
+      <div style={{
+        position: 'relative',
+        fontFamily: T.ff.body,
+        fontSize: isMobile ? 12.5 : 14,
+        fontStyle: 'italic',
+        color: '#e0d4ff',
+        lineHeight: isMobile ? 1.7 : 1.85,
+        paddingLeft: isMobile ? 22 : 30,
+        textAlign: 'left',
+      }}>
+        {/* Comilla angular gigante — identidad visual del pensamiento */}
+        <span style={{
+          position: 'absolute',
+          left: 0,
+          top: isMobile ? -4 : -5,
+          fontFamily: T.ff.display,
+          fontSize: isMobile ? 18 : 22,
+          lineHeight: 1,
+          color: `${T.thought}60`,
+          fontWeight: 800,
+          userSelect: 'none',
+        }}>«</span>
+
+        {/* Texto del pensamiento */}
+        <div style={{
+          color: '#e0d4ff',
+          textShadow: `0 0 20px ${T.thought}20`,
+        }}>
+          {renderLines(clean)}
+        </div>
+      </div>
     </div>
   )
 }
@@ -559,22 +768,88 @@ function BlockPiaStart({ text, isMobile }) {
   )
 }
 
-// ── FIN DE ARCHIVO PIA (<PIA) ─────────────────────────────────────
+// ── FIN DE ARCHIVO PIA (<PIA texto) ───────────────────────────────
 // Cierra visualmente el bloque del archivo PIA.
-function BlockPiaEnd({ isMobile }) {
+// Acepta texto opcional después del marcador: <PIA Fin del registro...
+// Si no hay texto, muestra "FIN DE LA NOTIFICACIÓN" por defecto.
+function BlockPiaEnd({ text, isMobile }) {
+  // Extrae el texto después de "<PIA"
+  const clean = text.replace(/^<PIA\s*/i, '').trim()
+
   return (
     <div style={{
       fontFamily: T.ff.mono,
-      borderBottom: `1px solid ${T.pia}40`,
-      borderLeft: `2px solid ${T.pia}40`,
-      borderRadius: '0 0 8px 0',
       margin: isMobile ? '0 0 24px 0' : '0 0 36px 0',
-      padding: isMobile ? '8px 14px' : '8px 18px',
-      background: `linear-gradient(to right,${T.pia}06,transparent)`,
-      display: 'flex', alignItems: 'center', gap: 10,
+      borderBottom: `1px solid ${T.pia}50`,
+      borderLeft: `2px solid ${T.pia}`,
+      borderRadius: '0 0 8px 0',
+      overflow: 'hidden',
     }}>
-      <span style={{ color: `${T.pia}60`, fontSize: 9, letterSpacing: '.12em' }}>■ FIN DEL ARCHIVO</span>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to right,${T.pia}20,transparent)` }} />
+      <div style={{
+        background: `linear-gradient(to right,${T.pia}15,transparent)`,
+        padding: isMobile ? '9px 14px' : '10px 18px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        flexWrap: 'wrap',
+      }}>
+        {/* Indicador de cierre */}
+        <span style={{ color: T.pia, fontSize: 10, letterSpacing: '.1em' }}>■ PIA</span>
+        <div style={{ width: 1, height: 12, background: `${T.pia}40` }} />
+        {/* Texto del cierre */}
+        <span style={{
+          color: T.pia,
+          fontSize: 11,
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          fontWeight: 500,
+        }}>
+          {clean || 'FIN DE LA NOTIFICACIÓN'}
+        </span>
+        {/* Punto pulsante (igual que en la apertura, cierra el ciclo) */}
+        <div style={{
+          marginLeft: 'auto',
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: T.pia,
+          boxShadow: `0 0 8px ${T.pia}`,
+          animation: 'h-glow-pulse 2s ease infinite',
+        }} />
+      </div>
+    </div>
+  )
+}
+
+
+// ── CONTENIDO INTERNO DE ARCHIVO PIA ─────────────────────────────
+// Se activa para TODO el texto que está entre >PIA y <PIA.
+// Renderiza cada línea/bloque interno con estilo de terminal PIA:
+// fondo tintado verde, borde izquierdo PIA, fuente mono.
+// Soporta | como salto de línea interno (igual que BlockLog).
+// El texto puede venir sin marcador — el contexto PIA lo envuelve todo.
+function BlockPiaContent({ text, isMobile }) {
+  // Limpia bullets si el autor los usó (* o - como lista)
+  const clean = text
+    .split('\n')
+    .map(l => l.replace(/^[\s]*[*\-–]\s*/, '').trim())
+    .filter(Boolean)
+    .join(' | ')   // Une líneas múltiples con | para saltos internos
+
+  return (
+    <div style={{
+      fontFamily: T.ff.mono,
+      fontSize: isMobile ? 11 : 12,
+      color: '#9ef0d4',                          // Verde claro PIA: más cálido que el log normal
+      background: `linear-gradient(to right, rgba(0,229,180,0.06), transparent)`,
+      border: `1px solid rgba(0,229,180,0.12)`,
+      borderLeft: `2px solid rgba(0,229,180,0.5)`,
+      borderRadius: '0 8px 8px 0',
+      padding: isMobile ? '10px 14px' : '11px 18px',
+      marginBottom: 10,
+      lineHeight: 1.85,
+      letterSpacing: '.02em',
+      textAlign: 'left',
+    }}>
+      {renderLines(clean)}
     </div>
   )
 }
@@ -613,13 +888,34 @@ function BlockMedia({ text, type, isMobile }) {
 // ══════════════════════════════════════════════════════════════════
 
 function renderSection(sectionContent, color, isMobile) {
-  // El preprocesador ya garantizó que cada bloque especial
-  // está rodeado de líneas vacías, así que split('\n\n') es suficiente.
-  const blocks = sectionContent.split('\n\n').filter(b => b.trim())
-  let pCount   = 0
+  const blocks  = sectionContent.split('\n\n').filter(b => b.trim())
+  let pCount    = 0
+  let inPia     = false   // Rastreador de contexto PIA activo
 
   return blocks.map((block, i) => {
     const type = detectBlockType(block)
+
+    // >PIA: abre el contexto, renderiza la cabecera
+    if (type === 'pia-start') {
+      inPia = true
+      return <BlockPiaStart key={i} text={block} isMobile={isMobile} />
+    }
+
+    // <PIA: cierra el contexto, renderiza el pie con el texto opcional
+    if (type === 'pia-end') {
+      inPia = false
+      return <BlockPiaEnd key={i} text={block} isMobile={isMobile} />
+    }
+
+    // Dentro del contexto PIA: todo es BlockPiaContent
+    // excepto los diálogos que mantienen su estilo visual propio
+    if (inPia) {
+      if (type === 'dialogue')     return <BlockDialogue    key={i} text={block} isMobile={isMobile} />
+      if (type === 'thought-pia') return <BlockThoughtPia key={i} text={block} isMobile={isMobile} />
+      return <BlockPiaContent key={i} text={block} isMobile={isMobile} />
+    }
+
+    // Fuera del contexto PIA: comportamiento normal
     switch (type) {
       case 'separator':     return <BlockSeparator   key={i} color={color} />
       case 'log':           return <BlockLog         key={i} text={block} color={color} isMobile={isMobile} />
@@ -629,10 +925,10 @@ function renderSection(sectionContent, color, isMobile) {
       case 'signature':     return <BlockSignature   key={i} color={color} />
       case 'thought':       return <BlockThought     key={i} text={block} isMobile={isMobile} />
       case 'dialogue':      return <BlockDialogue    key={i} text={block} isMobile={isMobile} />
-      case 'dialogue-pia':  return <BlockDialoguePia key={i} text={block} isMobile={isMobile} />
+      case 'thought-pia':   return <BlockThoughtPia key={i} text={block} isMobile={isMobile} />
       case 'dialogue-azul': return <BlockDialogueAzul key={i} text={block} isMobile={isMobile} />
-      case 'pia-start':     return <BlockPiaStart    key={i} text={block} isMobile={isMobile} />
-      case 'pia-end':       return <BlockPiaEnd      key={i} isMobile={isMobile} />
+      case 'dialogue-pia-zuri': return <BlockDialoguePiaToZuri  key={i} text={block} isMobile={isMobile} />  
+      case 'dialogue-zuri-pia': return <BlockDialogueZuriToPia  key={i} text={block} isMobile={isMobile} />        
       case 'media-img':
       case 'media-gif':
       case 'media-audio':   return <BlockMedia       key={i} text={block} type={type} isMobile={isMobile} />
@@ -709,7 +1005,7 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMo
         transform: 'translateY(-50%)',
         zIndex: 350,
       }}>
-        <NavButton onClick={onPrev} disabled={current === 0} color={color} label={isMobile ? '←' : '← ANTERIOR'} isMobile={isMobile} />
+        <NavButton onClick={onPrev} disabled={current === 0} color={color} label={isMobile ? 'ᐊ' : 'ᐊ ANTERIOR'} isMobile={isMobile} />
       </div>
 
       {/* ── BOTÓN SIGUIENTE ──────────────────────────────────────────────
@@ -722,8 +1018,9 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMo
         transform: 'translateY(-50%)',
         zIndex: 350,
       }}>
-        <NavButton onClick={onNext} disabled={current === total - 1} color={color} label={isMobile ? '→' : 'SIGUIENTE →'} primary isMobile={isMobile} />
+        <NavButton onClick={onNext} disabled={current === total - 1} color={color} label={isMobile ? 'ᐅ' : 'SIGUIENTE ᐅ'} primary isMobile={isMobile} />
       </div>
+
 
       {/* ── INDICADORES DE CAPÍTULO (PUNTOS) ────────────────────────────
           Barra fija en la parte inferior, centrada horizontalmente.
