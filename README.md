@@ -37,7 +37,7 @@ Gracias por el tiempo de lectura.
 
 ---
 
-## 🏗️ Tecnologías
+## Tecnologías
 
 | Tecnología | Uso |
 |------------|-----|
