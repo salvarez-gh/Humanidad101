@@ -101,6 +101,10 @@ const BLOCK_PREFIXES = [
 ]
 
 function preprocessContent(content) {
+  // Una entrada sin texto (content ausente o de otro tipo) no tiene nada que
+  // procesar. Sin esta guarda, content.replace(...) lanza un TypeError que
+  // desmonta todo el lector.
+  if (typeof content !== 'string') return ''
   // 1) Normaliza finales de línea. Si el .txt viene de Windows (CRLF, \r\n) o
   //    tiene \r sueltos, una "línea vacía" queda como \r\n\r\n, que NO contiene
   //    el string exacto "\n\n" — por eso split('\n\n') nunca separaba los bloques.
@@ -246,6 +250,9 @@ function renderLines(text) {
 function splitIntoSections(content) {
   // Primero preprocesa para garantizar que los bloques estén bien separados
   const processed = preprocessContent(content)
+  // Sin texto no hay secciones que mostrar: devuelve una lista vacía para que
+  // el lector muestre su aviso de respaldo en vez de fallar más adelante.
+  if (!processed.trim()) return []
   const lines      = processed.split('\n')
   const sections   = []
   let currentTitle = null
@@ -1226,6 +1233,34 @@ function CloseButton({ onClick, color, label, isMobile }) {
 
 
 // ══════════════════════════════════════════════════════════════════
+//  LECTOR SIN CONTENIDO
+//  Respaldo para una entrada que no tiene texto que mostrar. Conserva
+//  el título y ofrece volver al universo.
+// ══════════════════════════════════════════════════════════════════
+
+function ReaderEmpty({ entry, color, onClose, isMobile }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', animation: 'h-fadein .35s ease' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,4,10,0.96)', backdropFilter: 'blur(28px)' }} />
+      <div className="h101-scroll" style={{
+        position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto',
+        padding: isMobile ? '16px 16px 80px' : 'clamp(28px,5vh,56px) clamp(24px,9vw,130px) 80px',
+      }}>
+        <CloseButton onClick={onClose} color={color} label="← VOLVER AL UNIVERSO" isMobile={isMobile} />
+        <div style={{ maxWidth: 820, margin: '0 auto' }}>
+          <h1 style={{ fontFamily: T.ff.display, fontSize: isMobile ? 'clamp(1.6rem,9vw,2.4rem)' : 'clamp(2rem,4vw,5rem)', fontWeight: 800, color: '#fff', lineHeight: 1.05, marginBottom: 16, letterSpacing: '-.02em', textShadow: `0 0 80px ${color}35` }}>
+            {entry?.title || 'Entrada sin título'}
+          </h1>
+          <p style={{ fontFamily: T.ff.body, fontSize: isMobile ? 14 : 16, color: T.onVariant, lineHeight: 1.7 }}>
+            Esta entrada todavía no tiene contenido para mostrar.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  READER PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
 
@@ -1290,6 +1325,12 @@ export default function Reader({ entry, color, onClose }) {
   const goPrev = useCallback(() => setPage(p => Math.max(p - 1, 0)), [])
   const goTo   = useCallback(i => setPage(i), [])
   const cur    = sections[page]
+
+  // Entrada sin contenido de texto: muestra un aviso contenido en vez de
+  // dejar caer todo el lector (cur sería undefined y el render lanzaría).
+  if (!cur) {
+    return <ReaderEmpty entry={entry} color={color} onClose={handleClose} isMobile={isMobile} />
+  }
 
   return (
     <>
