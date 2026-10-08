@@ -10,6 +10,8 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
+import { db } from './firebase'
+import { doc, getDoc } from 'firebase/firestore'
 import { captureEvent } from './analytics'
 
 // ══════════════════════════════════════════════════════════════════
@@ -29,6 +31,25 @@ const T = {
     body:    "'Geist', sans-serif",
     mono:    "'JetBrains Mono', monospace",
   },
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TEXTO POR DEFECTO (fallback)
+//  Si Firebase no responde o falta un campo, se usa este valor.
+//  Debe coincidir con los campos del documento site_config/landing.
+// ══════════════════════════════════════════════════════════════════
+
+const DEFAULT_LANDING = {
+  author:              'Suler Álvarez Naranjo',
+  titleLine1:          'Humanidad',
+  titleLine2:          '101',
+  quote:               '"Con el Homo sapiens en la epítome del ecosistema terrestre, al depredarse a sí mismos y sobrevivir en un sistema que aclama los pecados de sus deidades, la estabilidad era inalcanzable."',
+  description:         'Un universo de ciencia ficción que abarca desde el Big Bang hasta nuestro futuro.',
+  enterButton:         'Entrar al universo',
+  enterButtonLoading:  'Iniciando…',
+  copyrightLine1:      `© ${new Date().getFullYear()} Suler Álvarez Naranjo. Todos los derechos reservados.`,
+  copyrightLine2:      'Los textos, imágenes y demás contenidos de este sitio web son propiedad de su autor y están protegidos por las leyes de propiedad intelectual. Queda prohibida su reproducción, distribución o modificación sin autorización expresa.',
+  copyrightEmail:      'u.humanidad101@gmail.com',
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -204,11 +225,10 @@ function SocialLink({ href, label, icon, accent, sublabel, platform }) {
 //  el contexto del dispositivo.
 // ══════════════════════════════════════════════════════════════════
 
-function EnterButton({ onEnter }) {
+function EnterButton({ onEnter, label, labelLoading }) {
   const [hov, setHov]           = useState(false)
   const [pressing, setPressing] = useState(false)
 
-  // onEnter aquí ya es handleEnter del Landing (que captura el evento)
   const handleClick = () => {
     setPressing(true)
     setTimeout(onEnter, 600)
@@ -236,7 +256,6 @@ function EnterButton({ onEnter }) {
         overflow: 'hidden', whiteSpace: 'nowrap',
       }}
     >
-      {/* Anillo pulsante al hover */}
       {hov && !pressing && (
         <div style={{
           position: 'absolute', inset: -4, borderRadius: 10,
@@ -245,10 +264,11 @@ function EnterButton({ onEnter }) {
           pointerEvents: 'none',
         }} />
       )}
-      {pressing ? 'Iniciando…' : 'Entrar al universo'}
+      {pressing ? labelLoading : label}
     </button>
   )
 }
+
 
 // ══════════════════════════════════════════════════════════════════
 //  ICONOS SVG de las redes sociales
@@ -293,17 +313,34 @@ export default function Landing({ onEnter }) {
   const [exiting,  setExiting]  = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
+  const [config, setConfig] = useState(DEFAULT_LANDING)
 
+// Use effect para  cargar los datos del landing desde firebase
   useEffect(() => {
-    const checkSize = () => {
-      const w = window.innerWidth
-      setIsMobile(w < 640)
-      setIsTablet(w >= 640 && w < 1024)
+    async function loadConfig() {
+      try {
+        const snap = await getDoc(doc(db, 'site_config', 'landing'))
+        if (snap.exists()) {
+          // Mezcla: campos de Firebase sobre los por defecto
+          // Así, si un campo falta, se conserva el fallback.
+          setConfig({ ...DEFAULT_LANDING, ...snap.data() })
+        }
+      } catch (error) {
+        console.error('No se pudo cargar la configuración de la landing', error)
+        captureEvent('landing_config_load_error', { message: error.message })
+      }
     }
-    checkSize()
-    window.addEventListener('resize', checkSize)
-    return () => window.removeEventListener('resize', checkSize)
-  }, [])
+    loadConfig()
+  
+  const checkSize = () => {
+    const w = window.innerWidth
+    setIsMobile(w < 640)
+    setIsTablet(w >= 640 && w < 1024)
+  }
+  checkSize()
+  window.addEventListener('resize', checkSize)
+  return () => window.removeEventListener('resize', checkSize)
+}, [])
 
   // handleEnter: captura el evento y lanza la transición de salida.
   // Se pasa como onEnter al EnterButton para que el botón no necesite
@@ -368,7 +405,7 @@ export default function Landing({ onEnter }) {
             display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12,
           }}>
             <div style={{ width: isMobile ? 16 : 24, height: 1, background: `linear-gradient(to right,transparent,${T.onVariant}60)` }} />
-            Suler Álvarez Naranjo
+            {config.author}
             <div style={{ width: isMobile ? 16 : 24, height: 1, background: `linear-gradient(to left,transparent,${T.onVariant}60)` }} />
           </div>
 
@@ -386,11 +423,11 @@ export default function Landing({ onEnter }) {
             animationIterationCount: '1,infinite',
           }}>
             <span style={{ color: T.cyan, textShadow: `0 0 60px ${T.cyan}50,0 0 120px ${T.cyan}20` }}>
-              Humanidad
+              {config.titleLine1}
             </span>
             {' '}
             <span style={{ color: '#ffffff', textShadow: `0 0 80px ${T.gold}40,0 2px 60px rgba(0,0,0,.8)` }}>
-              101
+              {config.titleLine2}
             </span>
           </h1>
 
@@ -420,10 +457,9 @@ export default function Landing({ onEnter }) {
             marginBottom: isMobile ? 16 : 20,
             animation: 'h-slideup .8s .55s ease both',
           }}>
-            "Con el homo-sapiens en el primer escalón de la cadena alimenticia,
-            presa y depredador se hicieron uno, sobreviviendo en un sistema de
-            ovación a los pecados de su Dios, la estabilidad era inalcanzable."
-          </p>
+              {config.quote}
+            </p>    
+
 
           {/* Descripción breve */}
           <p style={{
@@ -435,8 +471,7 @@ export default function Landing({ onEnter }) {
             marginBottom: isMobile ? 32 : 48,
             animation: 'h-slideup .8s .7s ease both',
           }}>
-            Un universo de ciencia ficción que abarca desde el Big Bang
-            hasta el presente cósmico.
+              {config.description}
           </p>
 
           {/* Botón de entrada */}
@@ -446,7 +481,11 @@ export default function Landing({ onEnter }) {
             display: 'flex',
             justifyContent: isMobile ? 'center' : 'flex-start',
           }}>
-            <EnterButton onEnter={handleEnter} />
+            <EnterButton 
+              onEnter={handleEnter} 
+              label={config.enterButton} 
+              labelLoading={config.enterButtonLoading} 
+            />
           </div>
 
         </div>
@@ -495,20 +534,17 @@ export default function Landing({ onEnter }) {
         zIndex: 20, pointerEvents: 'none',
       }}>
         <p style={{ marginBottom: isMobile ? 10 : 20 }}>
-          © {new Date().getFullYear()} Suler Álvarez Naranjo. Todos los derechos reservados.
+           {config.copyrightLine1}
         </p>
         <p style={{
           fontSize: isMobile ? 'clamp(7px,1.6vw,9px)' : 'clamp(11px,0.8vw,15px)',
           opacity: 0.7, marginBottom: isMobile ? 10 : 15,
           display: isMobile ? 'none' : 'block',
         }}>
-          Los textos, imágenes y demás contenidos de este sitio web son propiedad de su autor
-          y están protegidos por las leyes de propiedad intelectual.
-          <br />
-          Queda prohibida su reproducción, distribución o modificación sin autorización expresa.
+          {config.copyrightLine2}
         </p>
         <a
-          href="mailto:u.humanidad101@gmail.com"
+            href={`mailto:${config.copyrightEmail}`}
           style={{
             color: T.cyan, textDecoration: 'none',
             fontSize: isMobile ? 'clamp(9px,1.6vw,11px)' : 'clamp(9px,0.7vw,12px)',
@@ -519,7 +555,7 @@ export default function Landing({ onEnter }) {
           onMouseEnter={e => e.currentTarget.style.opacity = 1}
           onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
         >
-          u.humanidad101@gmail.com
+         {config.copyrightEmail}
         </a>
       </div>
 
