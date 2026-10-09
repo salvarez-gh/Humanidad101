@@ -1070,7 +1070,9 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
         }} />
 
         <div style={{
-          position: 'absolute', left: '6%', top: '50%',
+          position: 'absolute', 
+          left: isMobile ? '3%': '6%', 
+          top: isMobile ? '60%': '50%',
           transform: 'translateY(-120%)',
           fontFamily: T.ff.mono, fontSize: 11,
           color: `${color}80`,
@@ -1078,13 +1080,19 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
           paddingRight: 12,
           pointerEvents: 'none',
           zIndex: 5,
-          whiteSpace: 'nowrap',
-        }}>
+          whiteSpace: 'wrap',
+          maxWidth: isMobile ? 80 : 'none', 
+          overflow: 'hidden',
+          textOverflow: 'ellipsis', 
+          }}>
           {quadrant.startBillion === 0 ? 'Año 0' : `${quadrant.startBillion}`}
         </div>
 
         <div style={{
-          position: 'absolute', right: '8%', top: '50%',
+          
+          position: 'absolute', 
+          right: isMobile ? '8%' : '8%', 
+          top: isMobile ? '60%' : '50%',
           transform: 'translateY(-120%)',
           fontFamily: T.ff.mono, fontSize: 11,
           color: `${color}80`,
@@ -1092,9 +1100,12 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
           paddingLeft: 12,
           pointerEvents: 'none',
           zIndex: 5,
-          whiteSpace: 'nowrap',
+          whiteSpace: 'wrap',
+          maxWidth: isMobile ? 80 : 'none', 
+          overflow: 'hidden',
+          textOverflow: 'ellipsis', 
         }}>
-          {quadrant.endBillion} B AÑOS
+          {quadrant.endBillion}
         </div>
 
         {[.2, .4, .6, .8].map(pos => (
