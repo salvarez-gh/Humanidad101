@@ -389,16 +389,19 @@ const QM = {
 // ══════════════════════════════════════════════════════════════════
 //  CANVAS GENERATIVO
 // ══════════════════════════════════════════════════════════════════
-function CosmicCanvas({ quadrantId }) {
+function CosmicCanvas({ quadrantId, paused }) {
   const ref = useRef(null)
   const raf = useRef(null)
+  const t   = useRef(0)   // Fuera del efecto: al reanudar, la animación sigue donde quedó
   useEffect(() => {
+    // Con el Reader abierto el canvas queda oculto: no se pinta para no
+    // competir con los cambios de página por CPU y GPU.
+    if (paused) return
     const canvas = ref.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     const meta = QM[quadrantId]
     if (!meta) return
-    let t = 0
     const resize = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
@@ -406,8 +409,8 @@ function CosmicCanvas({ quadrantId }) {
     resize()
     window.addEventListener('resize', resize)
     const loop = () => {
-      t += 1
-      meta.paint(ctx, canvas.width, canvas.height, t)
+      t.current += 1
+      meta.paint(ctx, canvas.width, canvas.height, t.current)
       raf.current = requestAnimationFrame(loop)
     }
     raf.current = requestAnimationFrame(loop)
@@ -415,7 +418,7 @@ function CosmicCanvas({ quadrantId }) {
       cancelAnimationFrame(raf.current)
       window.removeEventListener('resize', resize)
     }
-  }, [quadrantId])
+  }, [quadrantId, paused])
   return (
     <canvas
       ref={ref}
@@ -967,7 +970,7 @@ function ArrowBtn({ dir, color, onClick }) {
 // ══════════════════════════════════════════════════════════════════
 //  PANTALLA DE CUADRANTE
 // ══════════════════════════════════════════════════════════════════
-function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }) {
+function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile, paused }) {
   const meta     = QM[quadrant.id] || QM.q1
   const color    = meta.color
   const qEntries = entries.filter(e => e.quadrantId === quadrant.id)
@@ -976,7 +979,7 @@ function QuadrantScreen({ quadrant, entries, isActive, onSelectEntry, isMobile }
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      <CosmicCanvas quadrantId={quadrant.id} />
+      <CosmicCanvas quadrantId={quadrant.id} paused={paused} />
       <Scanlines />
       <div style={{
         position: 'absolute', inset: 0,
@@ -1320,6 +1323,7 @@ export default function Timeline({ onExit }) {
               isActive={i === currentQ}
               onSelectEntry={handleSelectEntry}
               isMobile={isMobile}
+              paused={Boolean(selectedEntry)}
             />
           ))}
         </div>
