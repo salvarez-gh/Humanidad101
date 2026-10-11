@@ -29,7 +29,7 @@
 //  Z: texto         dialogue-zuri-pia   Z: Silencio, PIA
 // ════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { captureEvent } from './analytics'
 
 // ══════════════════════════════════════════════════════════════════
@@ -1114,7 +1114,7 @@ function PageNav({ current, total, sections, color, onPrev, onNext, onJump, isMo
               whiteSpace: 'nowrap',
             }}
           >
-            {isOpen ? '✕' : '☰'}
+            {isOpen ? '✕' : `☰ ${current + 1}/${total}`}
           </button>
 
           {/* Selector (solo visible cuando isOpen es true) */}
@@ -1230,7 +1230,7 @@ function CloseButton({ onClick, color, label, isMobile }) {
 // ══════════════════════════════════════════════════════════════════
 
 export default function Reader({ entry, color, onClose }) {
-  const sections              = splitIntoSections(entry.content)
+  const sections              = useMemo(() => splitIntoSections(entry.content), [entry.content])
   const total                 = sections.length
   const [page, setPage]       = useState(0)
   const scrollRef             = useRef(null)
