@@ -1168,6 +1168,7 @@ export default function Timeline({ onExit }) {
   const [currentQ,      setCurrentQ]      = useState(0)
   const [selectedEntry, setSelectedEntry] = useState(null)
   const previousQuadrantRef = useRef(0)
+  const navMethodRef = useRef(null)
 
   const isMobile = useMediaQuery('(max-width: 640px)')
   const isTablet = useMediaQuery('(max-width: 1023px)')
@@ -1200,11 +1201,17 @@ export default function Timeline({ onExit }) {
   useEffect(() => {
     if (!loaded || previousQuadrantRef.current === currentQ) return
     const quadrant = quadrants[currentQ]
+    const method = navMethodRef.current
     captureEvent('quadrant_changed', {
       quadrant_id: quadrant?.id,
       quadrant_number: quadrant?.number,
+      ...(method && {
+        from_quadrant: quadrants[previousQuadrantRef.current]?.id,
+        method,
+      }),
     })
     previousQuadrantRef.current = currentQ
+    navMethodRef.current = null
   }, [currentQ, loaded, quadrants])
 
   const handleSelectEntry = entry => {
@@ -1436,26 +1443,14 @@ export default function Timeline({ onExit }) {
       ══════════════════════════════════════════════════════════ */}
       {view === 'quadrant' && !isMobile && currentQ > 0 && (
         <ArrowBtn dir="left" color={meta.color} onClick={() => {
-          const next = currentQ - 1
-          captureEvent('quadrant_changed', {
-            quadrant_id:    quadrants[next]?.id,
-            quadrant_number: quadrants[next]?.number,
-            from_quadrant:  quadrants[currentQ]?.id,
-            method:         'arrow',
-          })
-          setCurrentQ(next)
+          navMethodRef.current = 'arrow'
+          setCurrentQ(currentQ - 1)
         }} />
       )}
       {view === 'quadrant' && !isMobile && currentQ < quadrants.length - 1 && (
         <ArrowBtn dir="right" color={meta.color} onClick={() => {
-          const next = currentQ + 1
-          captureEvent('quadrant_changed', {
-            quadrant_id:    quadrants[next]?.id,
-            quadrant_number: quadrants[next]?.number,
-            from_quadrant:  quadrants[currentQ]?.id,
-            method:         'arrow',
-          })
-          setCurrentQ(next)
+          navMethodRef.current = 'arrow'
+          setCurrentQ(currentQ + 1)
         }} />
       )}
 
